@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "659707782919",
+    "project_id": "pesu-chatbot-393ee",
+    "storage_bucket": "pesu-chatbot-393ee.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:659707782919:android:66d777c6fa34b528dc47a2",
+        "android_client_info": {
+          "package_name": "com.example.sahai"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBEpkqqio1GM4XR92hMnF3zZXh8xIenlFk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
