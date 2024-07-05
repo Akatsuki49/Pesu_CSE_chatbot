@@ -10,26 +10,26 @@ class GuestChat extends StatelessWidget {
       canPop: true,
       child: Scaffold(
         appBar: AppBar(
-          title: Text('Guest Chat'),
+          title: const Text('Guest Chat'),
         ),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('Guest Chat Screen'),
-              SizedBox(height: 20),
+              const Text('Guest Chat Screen'),
+              const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: () {
                   // Navigate to the login screen
                   Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(builder: (context) => LandingPage()),
+                    MaterialPageRoute(builder: (context) => const LandingPage()),
                   );
                 },
-                child: Text('Login'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
-                  padding: EdgeInsets.symmetric(horizontal: 50, vertical: 15),
+                  padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
                 ),
+                child: const Text('Login'),
               ),
             ],
           ),

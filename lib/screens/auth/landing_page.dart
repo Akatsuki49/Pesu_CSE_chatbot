@@ -1,6 +1,4 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sahai/screens/auth/login_page.dart';
 import 'package:sahai/screens/auth/widgets/custom_card.dart';
@@ -19,7 +17,7 @@ class _LandingPageState extends State<LandingPage> {
     //code to navigate to login page
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => LoginPage()),
+      MaterialPageRoute(builder: (context) => const LoginPage()),
     );
   }
 
@@ -28,9 +26,9 @@ class _LandingPageState extends State<LandingPage> {
     var screenwidth = MediaQuery.of(context).size.width;
     var screenheight = MediaQuery.of(context).size.height;
     return Scaffold(
-      backgroundColor: Color(0xff00377A),
+      backgroundColor: const Color(0xff00377A),
       appBar: AppBar(
-        backgroundColor: Color(0xff00377A),
+        backgroundColor: const Color(0xff00377A),
         leadingWidth: screenwidth * 0.38,
         leading: Padding(
           padding: const EdgeInsets.only(top: 5.0),
@@ -58,7 +56,7 @@ class _LandingPageState extends State<LandingPage> {
           ),
           Padding(
             padding: const EdgeInsets.only(left: 22.0),
-            child: Container(
+            child: SizedBox(
               width: screenwidth * 0.75,
               child: Text(
                 'a student-led initiative to make your experience smoother at the Dept. of CSE',

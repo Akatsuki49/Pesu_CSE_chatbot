@@ -21,23 +21,23 @@ Widget CustomCard(
   double progress,
   Function? navigateToLoginPage,
 ) {
-  Color color1 = Color(0xffF37C00);
-  Color color2 = Color(0xffACACAC);
+  Color color1 = const Color(0xffF37C00);
+  Color color2 = const Color(0xffACACAC);
   double screenwidth = MediaQuery.of(context).size.width;
   double screenheight = MediaQuery.of(context).size.height;
 
   Future<void> handleSignIn(String userType) async {
-    final AuthService _authService = AuthService();
+    final AuthService authService = AuthService();
     try {
       // Show loading indicator
       showDialog(
         context: context,
         barrierDismissible: false,
         builder: (BuildContext context) {
-          return Center(child: CircularProgressIndicator());
+          return const Center(child: CircularProgressIndicator());
         },
       );
-      UserCredential? userCredential = await _authService.signInWithGoogle();
+      UserCredential? userCredential = await authService.signInWithGoogle();
 
       if (userCredential != null) {
         String? email = userCredential.user?.email;
@@ -51,9 +51,9 @@ Widget CustomCard(
 
           if (user.userType == 'pesu') {
             Navigator.pushReplacement(context,
-                MaterialPageRoute(builder: (context) => TextChatScreen()));
+                MaterialPageRoute(builder: (context) => const TextChatScreen()));
           } else {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                 content: Text('Please sign-in with your university email')));
           }
         }
@@ -61,7 +61,7 @@ Widget CustomCard(
     } catch (e) {
       print('Error signing in with Google: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Sign-in failed. Please try again.')));
+          const SnackBar(content: Text('Sign-in failed. Please try again.')));
     }
   }
 
@@ -71,7 +71,7 @@ Widget CustomCard(
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(30.78),
     ),
-    child: Container(
+    child: SizedBox(
       width: screenwidth,
       height: screenheight,
       child: Column(
@@ -126,21 +126,21 @@ Widget CustomCard(
               style: GoogleFonts.vazirmatn(
                 fontSize: screenwidth * 0.04,
                 fontWeight: FontWeight.w400,
-                color: Color(0xff545454),
+                color: const Color(0xff545454),
               ),
             ),
           ),
           Padding(
             padding: const EdgeInsets.only(left: 30.0, right: 20),
             child: isFirstPage
-                ? Text('')
+                ? const Text('')
                 : RichText(
                     text: TextSpan(
                         text: 'or continue as ',
                         style: GoogleFonts.vazirmatn(
                           fontSize: screenwidth * 0.04,
                           fontWeight: FontWeight.w400,
-                          color: Color(0xff545454),
+                          color: const Color(0xff545454),
                         ),
                         children: [
                           TextSpan(
@@ -148,13 +148,13 @@ Widget CustomCard(
                             style: GoogleFonts.vazirmatn(
                               fontSize: screenwidth * 0.042,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xff545454),
+                              color: const Color(0xff545454),
                             ),
                             recognizer: TapGestureRecognizer()
                               ..onTap = () => Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                      builder: (context) => GuestChat())),
+                                      builder: (context) => const GuestChat())),
                           )
                         ]),
                   ),
@@ -189,7 +189,7 @@ Widget CustomCard(
                             color: Colors.white,
                           ),
                         ),
-                        Icon(Icons.arrow_forward, color: Colors.white),
+                        const Icon(Icons.arrow_forward, color: Colors.white),
                       ],
                     )
                   : Center(
@@ -211,11 +211,18 @@ Widget CustomCard(
               onPressed: () {
                 if (isFirstPage) {
                   Navigator.push(context,
-                      MaterialPageRoute(builder: (context) => GuestChat()));
+                      MaterialPageRoute(builder: (context) => const GuestChat()));
                 } else {
                   handleSignIn('staff');
                 }
               },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xff4D4D4D),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30.78),
+                ),
+                minimumSize: Size(screenwidth * 0.95, screenheight * 0.05),
+              ),
               child: Text(
                 buttonText2,
                 style: GoogleFonts.inter(
@@ -223,13 +230,6 @@ Widget CustomCard(
                   fontWeight: isFirstPage ? FontWeight.w400 : FontWeight.bold,
                   color: Colors.white,
                 ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Color(0xff4D4D4D),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30.78),
-                ),
-                minimumSize: Size(screenwidth * 0.95, screenheight * 0.05),
               ),
             ),
           ),

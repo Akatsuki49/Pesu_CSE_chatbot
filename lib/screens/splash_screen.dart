@@ -8,7 +8,7 @@ import 'package:sahai/screens/chat/guest_chat_screen.dart';
 import 'package:sahai/models/user_model.dart';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({Key? key}) : super(key: key);
+  const SplashScreen({super.key});
 
   @override
   _SplashScreenState createState() => _SplashScreenState();
@@ -31,11 +31,11 @@ class _SplashScreenState extends State<SplashScreen> {
       Provider.of<UserProvider>(context, listen: false).setUser(user);
       Navigator.of(context).pushReplacement(MaterialPageRoute(
         builder: (context) =>
-            user.userType == 'pesu' ? TextChatScreen() : GuestChat(),
+            user.userType == 'pesu' ? const TextChatScreen() : const GuestChat(),
       ));
     } else {
       Navigator.of(context).pushReplacement(MaterialPageRoute(
-        builder: (context) => LandingPage(),
+        builder: (context) => const LandingPage(),
       ));
     }
   }

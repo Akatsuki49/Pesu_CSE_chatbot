@@ -3,12 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sahai/providers/user_provider.dart';
 import 'package:sahai/screens/auth/services/auth_service.dart';
-import 'package:sahai/screens/auth/landing_page.dart';
 import './widgets/message_bubble.dart';
 import './widgets/chat_input.dart';
 
 class TextChatScreen extends StatefulWidget {
-  const TextChatScreen({Key? key}) : super(key: key);
+  const TextChatScreen({super.key});
 
   @override
   _TextChatScreenState createState() => _TextChatScreenState();
@@ -29,7 +28,7 @@ class _TextChatScreenState extends State<TextChatScreen> {
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
-        return Center(child: CircularProgressIndicator());
+        return const Center(child: CircularProgressIndicator());
       },
     );
 
@@ -48,7 +47,7 @@ class _TextChatScreenState extends State<TextChatScreen> {
 
       // Show error message
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Logout failed. Please try again.')),
+        const SnackBar(content: Text('Logout failed. Please try again.')),
       );
     }
   }
@@ -62,7 +61,7 @@ class _TextChatScreenState extends State<TextChatScreen> {
           title: const Text('sah.ai Chat'),
           actions: [
             IconButton(
-              icon: Icon(Icons.exit_to_app),
+              icon: const Icon(Icons.exit_to_app),
               onPressed: _handleLogout,
             ),
           ],
