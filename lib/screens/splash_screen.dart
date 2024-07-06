@@ -45,7 +45,7 @@ class _SplashScreenState extends State<SplashScreen> {
     return Scaffold(
       body: Center(
         child: Image.asset(
-            '/Users/shubh/sah.ai/sahai/assets/images/pesu_logo_png.png'),
+            'assets/images/pesu_logo_png.png'),
       ),
     );
   }

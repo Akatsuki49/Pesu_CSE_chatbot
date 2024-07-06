@@ -33,7 +33,7 @@ class _LandingPageState extends State<LandingPage> {
         leading: Padding(
           padding: const EdgeInsets.only(top: 5.0),
           child: Image.asset(
-            '/Users/shubh/sah.ai/sahai/assets/images/pesu_white_logo.png',
+            'assets/images/pesu_white_logo.png',
           ),
         ),
       ),

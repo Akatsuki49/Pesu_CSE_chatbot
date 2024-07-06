@@ -50,8 +50,10 @@ Widget CustomCard(
           Provider.of<UserProvider>(context, listen: false).setUser(user);
 
           if (user.userType == 'pesu') {
-            Navigator.pushReplacement(context,
-                MaterialPageRoute(builder: (context) => const TextChatScreen()));
+            Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const TextChatScreen()));
           } else {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                 content: Text('Please sign-in with your university email')));
@@ -210,8 +212,10 @@ Widget CustomCard(
             child: ElevatedButton(
               onPressed: () {
                 if (isFirstPage) {
-                  Navigator.push(context,
-                      MaterialPageRoute(builder: (context) => const GuestChat()));
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const GuestChat()));
                 } else {
                   handleSignIn('staff');
                 }
