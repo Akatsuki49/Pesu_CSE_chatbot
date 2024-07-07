@@ -54,15 +54,22 @@ class _TextChatScreenState extends State<TextChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    var screenwidth = MediaQuery.of(context).size.width;
+    var screenheight = MediaQuery.of(context).size.height;
     return PopScope(
       canPop: false,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('sah.ai Chat'),
+          leadingWidth: screenwidth * 0.38,
+          leading: Image.asset(
+            'assets/images/pesu_logo_png.png',
+            width: screenwidth * 0.3,
+            height: screenwidth * 0.3,
+          ),
           actions: [
-            IconButton(
-              icon: const Icon(Icons.exit_to_app),
-              onPressed: _handleLogout,
+            Padding(
+              padding: EdgeInsets.only(right: screenwidth * 0.03),
+              child: Image.asset('assets/images/sah.ai_greyText.png'),
             ),
           ],
         ),

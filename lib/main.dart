@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sahai/firebase_options.dart';
 import 'package:sahai/providers/user_provider.dart';
+import 'package:sahai/screens/chat/text_chat_screen.dart';
 import 'package:sahai/screens/splash_screen.dart';
 
 void main() async {
@@ -23,7 +24,8 @@ class MyApp extends StatelessWidget {
         theme: ThemeData(
           primarySwatch: Colors.blue,
         ),
-        home: const SplashScreen(),
+        // home: const SplashScreen(),
+        home: const TextChatScreen(),
       ),
     );
   }
