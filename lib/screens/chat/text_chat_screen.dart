@@ -14,11 +14,11 @@ class TextChatScreen extends StatefulWidget {
 }
 
 class _TextChatScreenState extends State<TextChatScreen> {
-  final List<String> _messages = [];
+  final Map<String, bool> _messages = {};
 
   void _handleSubmitted(String text) {
     setState(() {
-      _messages.insert(0, text);
+      _messages[text] = true; //submitted by user
     });
   }
 
@@ -53,6 +53,12 @@ class _TextChatScreenState extends State<TextChatScreen> {
   }
 
   @override
+  void initState() {
+    _messages['Hello! How may I assist you today?'] = false;
+    super.initState();
+  }
+
+  @override
   Widget build(BuildContext context) {
     var screenwidth = MediaQuery.of(context).size.width;
     var screenheight = MediaQuery.of(context).size.height;
@@ -79,8 +85,16 @@ class _TextChatScreenState extends State<TextChatScreen> {
               child: ListView.builder(
                 reverse: true,
                 itemCount: _messages.length,
-                itemBuilder: (context, index) =>
-                    MessageBubble(message: _messages[index]),
+                itemBuilder: (context, index) {
+                  final entry =
+                      _messages.entries.toList().reversed.toList()[index];
+                  final message = entry.key;
+                  final isMe = entry.value;
+                  return MessageBubble(
+                    message: message,
+                    isMe: isMe, //shuld be there per msg
+                  );
+                },
               ),
             ),
             ChatInput(onSubmitted: _handleSubmitted),
