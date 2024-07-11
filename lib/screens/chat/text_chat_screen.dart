@@ -1,6 +1,9 @@
 // lib/screens/chat/text_chat_screen.dart
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:sahai/models/message_model.dart';
 import 'package:sahai/providers/user_provider.dart';
 import 'package:sahai/screens/auth/services/auth_service.dart';
 import './widgets/message_bubble.dart';
@@ -14,11 +17,60 @@ class TextChatScreen extends StatefulWidget {
 }
 
 class _TextChatScreenState extends State<TextChatScreen> {
-  final Map<String, bool> _messages = {};
+  final List<MessageModel> _messages = [];
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   void _handleSubmitted(String text) {
     setState(() {
-      _messages[text] = true; //submitted by user
+      _messages.add(MessageModel(message: text, isUser: true));
+    });
+
+    String resp = generateMockResponse();
+    storeInFirestore(text, resp);
+  }
+
+  String generateMockResponse() {
+    String resp = 'Mock Response From Bot';
+    setState(() {
+      _messages.add(MessageModel(message: resp, isUser: false));
+    });
+
+    return resp;
+  }
+
+  Future<void> storeInFirestore(String text, String resp) async {
+    final userID = Provider.of<UserProvider>(context, listen: false).user?.uid;
+    final timeStamp = DateTime.now();
+
+    final data = {
+      'message': text,
+      'response': resp,
+      'deliveryTime': timeStamp,
+    };
+    await _firestore
+        .collection('users')
+        .doc(userID)
+        .collection('chats')
+        .add(data);
+  }
+
+  Future<void> _fetchMessages() async {
+    //get user id from same device must have the sameID: else there will be probs:
+    final userID = Provider.of<UserProvider>(context, listen: false).user?.uid;
+    final snapshot = await _firestore
+        .collection('users')
+        .doc(userID)
+        .collection('chats')
+        .get();
+
+    setState(() {
+      _messages.clear();
+      _messages.add(MessageModel(
+          message: 'Hello! How may I assist you today?', isUser: false));
+      for (var doc in snapshot.docs) {
+        _messages.add(MessageModel(message: doc['message'], isUser: true));
+        _messages.add(MessageModel(message: doc['response'], isUser: false));
+      }
     });
   }
 
@@ -54,7 +106,7 @@ class _TextChatScreenState extends State<TextChatScreen> {
 
   @override
   void initState() {
-    _messages['Hello! How may I assist you today?'] = false;
+    _fetchMessages();
     super.initState();
   }
 
@@ -86,13 +138,10 @@ class _TextChatScreenState extends State<TextChatScreen> {
                 reverse: true,
                 itemCount: _messages.length,
                 itemBuilder: (context, index) {
-                  final entry =
-                      _messages.entries.toList().reversed.toList()[index];
-                  final message = entry.key;
-                  final isMe = entry.value;
+                  final messageModel = _messages[_messages.length - 1 - index];
                   return MessageBubble(
-                    message: message,
-                    isMe: isMe, //shuld be there per msg
+                    message: messageModel.message,
+                    isMe: messageModel.isUser,
                   );
                 },
               ),
