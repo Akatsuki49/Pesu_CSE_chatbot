@@ -25,7 +25,6 @@ Widget CustomCard(
   Color color2 = const Color(0xffACACAC);
   double screenwidth = MediaQuery.of(context).size.width;
   double screenheight = MediaQuery.of(context).size.height;
-
   Future<void> handleSignIn(String userType) async {
     final AuthService authService = AuthService();
     try {
@@ -37,7 +36,11 @@ Widget CustomCard(
           return const Center(child: CircularProgressIndicator());
         },
       );
+
       UserCredential? userCredential = await authService.signInWithGoogle();
+
+      // Hide loading indicator
+      Navigator.of(context).pop();
 
       if (userCredential != null) {
         String? email = userCredential.user?.email;
@@ -59,13 +62,61 @@ Widget CustomCard(
                 content: Text('Please sign-in with your university email')));
           }
         }
+      } else {
+        // User cancelled the sign-in process
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Sign-in was cancelled')));
       }
     } catch (e) {
+      // Hide loading indicator in case of error
+      Navigator.of(context).pop();
+
       print('Error signing in with Google: $e');
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Sign-in failed. Please try again.')));
     }
   }
+
+  // Future<void> handleSignIn(String userType) async {
+  //   final AuthService authService = AuthService();
+  //   try {
+  //     // Show loading indicator
+  //     showDialog(
+  //       context: context,
+  //       barrierDismissible: false,
+  //       builder: (BuildContext context) {
+  //         return const Center(child: CircularProgressIndicator());
+  //       },
+  //     );
+  //     UserCredential? userCredential = await authService.signInWithGoogle();
+
+  //     if (userCredential != null) {
+  //       String? email = userCredential.user?.email;
+  //       if (email != null) {
+  //         UserModel user = UserModel(
+  //           uid: userCredential.user!.uid,
+  //           email: email,
+  //           userType: email.endsWith('@pesu.pes.edu') ? 'pesu' : 'guest',
+  //         );
+  //         Provider.of<UserProvider>(context, listen: false).setUser(user);
+
+  //         if (user.userType == 'pesu') {
+  //           Navigator.pushReplacement(
+  //               context,
+  //               MaterialPageRoute(
+  //                   builder: (context) => const TextChatScreen()));
+  //         } else {
+  //           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+  //               content: Text('Please sign-in with your university email')));
+  //         }
+  //       }
+  //     }
+  //   } catch (e) {
+  //     print('Error signing in with Google: $e');
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //         const SnackBar(content: Text('Sign-in failed. Please try again.')));
+  //   }
+  // }
 
   return Card(
     elevation: 3,

@@ -30,8 +30,9 @@ class _SplashScreenState extends State<SplashScreen> {
     if (user != null) {
       Provider.of<UserProvider>(context, listen: false).setUser(user);
       Navigator.of(context).pushReplacement(MaterialPageRoute(
-        builder: (context) =>
-            user.userType == 'pesu' ? const TextChatScreen() : const GuestChat(),
+        builder: (context) => user.userType == 'pesu'
+            ? const TextChatScreen()
+            : const GuestChat(),
       ));
     } else {
       Navigator.of(context).pushReplacement(MaterialPageRoute(
@@ -44,8 +45,7 @@ class _SplashScreenState extends State<SplashScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Center(
-        child: Image.asset(
-            'assets/images/pesu_logo_png.png'),
+        child: Image.asset('assets/images/pesu_logo_png.png'),
       ),
     );
   }

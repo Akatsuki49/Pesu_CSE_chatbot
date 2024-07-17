@@ -1,10 +1,10 @@
 // lib/screens/chat/text_chat_screen.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sahai/models/message_model.dart';
 import 'package:sahai/providers/user_provider.dart';
+import 'package:sahai/screens/auth/landing_page.dart';
 import 'package:sahai/screens/auth/services/auth_service.dart';
 import './widgets/message_bubble.dart';
 import './widgets/chat_input.dart';
@@ -92,7 +92,9 @@ class _TextChatScreenState extends State<TextChatScreen> {
       Navigator.of(context).pop();
 
       // Pop until we reach the LandingPage
-      Navigator.of(context).popUntil((route) => route.isFirst);
+      Navigator.of(context).pushReplacement(MaterialPageRoute(
+        builder: (context) => const LandingPage(),
+      ));
     } catch (e) {
       // Hide loading indicator
       Navigator.of(context).pop();
@@ -125,6 +127,10 @@ class _TextChatScreenState extends State<TextChatScreen> {
             height: screenwidth * 0.3,
           ),
           actions: [
+            IconButton(
+              icon: const Icon(Icons.logout),
+              onPressed: _handleLogout,
+            ),
             Padding(
               padding: EdgeInsets.only(right: screenwidth * 0.03),
               child: Image.asset('assets/images/sah.ai_greyText.png'),
