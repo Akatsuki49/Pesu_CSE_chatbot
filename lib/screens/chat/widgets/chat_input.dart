@@ -1,9 +1,19 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 
 class ChatInput extends StatefulWidget {
   final Function(String) onSubmitted;
+  final FocusNode focusNode;
+  final Color inputColor;
+  final Color inputBackgroundColor;
 
-  const ChatInput({super.key, required this.onSubmitted});
+  const ChatInput({
+    super.key,
+    required this.onSubmitted,
+    required this.focusNode,
+    required this.inputColor,
+    required this.inputBackgroundColor,
+  });
 
   @override
   _ChatInputState createState() => _ChatInputState();
@@ -11,7 +21,6 @@ class ChatInput extends StatefulWidget {
 
 class _ChatInputState extends State<ChatInput> {
   final TextEditingController _controller = TextEditingController();
-  final FocusNode _focusNode = FocusNode();
   bool _isFocused = false;
 
   void _handleSubmit() {
@@ -24,16 +33,15 @@ class _ChatInputState extends State<ChatInput> {
   @override
   void initState() {
     super.initState();
-    _focusNode.addListener(() {
+    widget.focusNode.addListener(() {
       setState(() {
-        _isFocused = _focusNode.hasFocus;
+        _isFocused = widget.focusNode.hasFocus;
       });
     });
   }
 
   @override
   void dispose() {
-    _focusNode.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -49,27 +57,54 @@ class _ChatInputState extends State<ChatInput> {
         children: [
           Expanded(
             child: Container(
-              height: screenheight *
-                  0.06, // Adjust this value to set the height of the TextField
+              height: screenheight * 0.052,
               child: TextField(
+                cursorColor: widget.inputColor,
                 controller: _controller,
-                focusNode: _focusNode,
+                focusNode: widget.focusNode,
+                style: TextStyle(color: widget.inputColor), // Text color
                 onSubmitted: (_) => _handleSubmit(),
                 decoration: InputDecoration(
                   contentPadding: EdgeInsets.symmetric(
-                    horizontal: screenwidth * 0.03,
+                    horizontal: screenwidth * 0.05,
                     vertical: screenheight * 0.01,
                   ),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(40.0),
+                    borderRadius: BorderRadius.circular(18.0),
+                    borderSide: const BorderSide(
+                      color: Color.fromARGB(
+                          255, 216, 216, 216), // Enabled border color
+                      width: 1.5, // Thicker enabled border
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(18.0),
+                    borderSide: const BorderSide(
+                      color: Color.fromARGB(
+                          255, 216, 216, 216), // Enabled border color
+                      width: 1.5, // Thicker enabled border
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(18.0),
+                    borderSide: const BorderSide(
+                      color: Color.fromARGB(
+                          255, 216, 216, 216), // Enabled border color
+                      width: 1.5, // Thicker enabled border
+                    ),
                   ),
                   filled: true,
-                  hintStyle: TextStyle(color: Colors.grey[800]),
+                  hintStyle: const TextStyle(
+                      color: Color.fromARGB(255, 182, 182, 182),
+                      fontWeight: FontWeight.w400), // Hint text color
                   hintText: "Message",
-                  fillColor: Colors.white70,
+                  fillColor: Color.fromARGB(255, 255, 255, 255),
                   suffixIcon: _isFocused
                       ? IconButton(
-                          icon: Icon(Icons.send),
+                          icon: Icon(
+                            Icons.send,
+                            color: Color(0xFF4D4D4D),
+                          ),
                           onPressed: _handleSubmit,
                         )
                       : null,
@@ -78,7 +113,11 @@ class _ChatInputState extends State<ChatInput> {
             ),
           ),
           IconButton(
-            icon: Icon(Icons.headphones_rounded, size: screenwidth * 0.09),
+            icon: Icon(
+              Icons.headphones_rounded,
+              size: screenwidth * 0.09,
+              color: Color(0xFF4D4D4D),
+            ),
             onPressed: _handleSubmit,
           ),
         ],

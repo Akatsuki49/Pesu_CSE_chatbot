@@ -72,7 +72,7 @@ class _LoginPageState extends State<LoginPage> {
             child: SizedBox(
               width: screenwidth * 0.75,
               child: Text(
-                'a student-led initiative to make your experience smoother at the Dept. of CSE',
+                'a student-led initiative to make your experience smoother at the Department of CSE',
                 style: GoogleFonts.inter(
                     color: Colors.white.withOpacity(0.7),
                     fontSize: screenwidth * 0.054,
