@@ -1,6 +1,7 @@
 # sahai
 
-A new Flutter project.
+A new Flutter project under the chairperson of the Department of CSE,PESU.
+Current status: Awaiting deployment and bug fixes
 
 ## Getting Started
 
