@@ -24,15 +24,15 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _checkUserSessionAndNavigate() async {
     await Future.delayed(const Duration(seconds: 3));
 
-    AuthService authService = AuthService();
-    UserModel? user = authService.getCurrentUser();
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    await userProvider.loadUser();
 
-    if (user != null) {
-      Provider.of<UserProvider>(context, listen: false).setUser(user);
+    if (userProvider.user != null) {
+      print("Waiting");
       Navigator.of(context).pushReplacement(MaterialPageRoute(
-        builder: (context) => user.userType == 'pesu'
+        builder: (context) => userProvider.user!.userType == 'pesu'
             ? const TextChatScreen()
-            : const GuestChat(),
+            : const GuestChatScreen(),
       ));
     } else {
       Navigator.of(context).pushReplacement(MaterialPageRoute(

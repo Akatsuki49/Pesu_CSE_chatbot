@@ -86,19 +86,15 @@ class _LoginPageState extends State<LoginPage> {
           Expanded(
             child: Align(
               alignment: Alignment.bottomCenter,
-              child: Padding(
-                  padding: const EdgeInsets.only(
-                    bottom: 10.0,
-                  ),
-                  child: CustomCard(
-                      context,
-                      'Please select one:',
-                      'This will help sah.ai fine tune its responses according to your needs',
-                      'I’m a student',
-                      'I’m a staff',
-                      false,
-                      progress,
-                      null)), //true for first page and false for second page
+              child: CustomCard(
+                  context,
+                  'Please select one:',
+                  'This will help sah.ai fine tune its responses according to your needs',
+                  'I’m a student',
+                  'I’m a staff',
+                  false,
+                  progress,
+                  null), //true for first page and false for second page
             ),
           )
         ],

@@ -207,7 +207,8 @@ Widget CustomCard(
                               ..onTap = () => Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                      builder: (context) => const GuestChat())),
+                                      builder: (context) =>
+                                          const GuestChatScreen())),
                           )
                         ]),
                   ),
@@ -266,7 +267,7 @@ Widget CustomCard(
                   Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => const GuestChat()));
+                          builder: (context) => const GuestChatScreen()));
                 } else {
                   handleSignIn('staff');
                 }

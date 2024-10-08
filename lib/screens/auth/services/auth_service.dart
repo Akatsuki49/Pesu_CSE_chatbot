@@ -9,7 +9,10 @@ class AuthService {
   Future<UserCredential?> signInWithGoogle() async {
     try {
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) return null;
+      if (googleUser == null) {
+        print('Google Sign In was aborted by the user');
+        return null;
+      }
 
       final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
@@ -19,9 +22,12 @@ class AuthService {
       );
 
       return await _auth.signInWithCredential(credential);
+    } on FirebaseAuthException catch (e) {
+      print('Firebase Auth Error: ${e.code} - ${e.message}');
+      rethrow;
     } catch (e) {
-      print('Error signing in with Google: $e');
-      return null;
+      print('Unexpected error during Google Sign In: $e');
+      rethrow;
     }
   }
 
@@ -39,7 +45,14 @@ class AuthService {
   }
 
   Future<void> signOut() async {
-    await _googleSignIn.signOut();
-    await _auth.signOut();
+    try {
+      await Future.wait([
+        _googleSignIn.signOut(),
+        _auth.signOut(),
+      ]);
+    } catch (e) {
+      print('Error during sign out: $e');
+      rethrow;
+    }
   }
 }

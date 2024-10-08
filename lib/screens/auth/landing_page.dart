@@ -73,20 +73,16 @@ class _LandingPageState extends State<LandingPage> {
           Expanded(
             child: Align(
               alignment: Alignment.bottomCenter,
-              child: Padding(
-                  padding: const EdgeInsets.only(
-                    bottom: 10.0,
-                  ),
-                  child: CustomCard(
-                    context,
-                    'Welcome to sah.ai! 👋🏻',
-                    'Your ultimate guide to navigating anything at PESU CSE and studying with ease!',
-                    'Get Started',
-                    'Proceed as Guest',
-                    true,
-                    progress,
-                    _navigateToLoginPage,
-                  )), //true for first page and false for second page
+              child: CustomCard(
+                context,
+                'Welcome to sah.ai! 👋🏻',
+                'Your ultimate guide to navigating anything at PESU CSE and studying with ease!',
+                'Get Started',
+                'Proceed as Guest',
+                true,
+                progress,
+                _navigateToLoginPage,
+              ), //true for first page and false for second page
             ),
           )
         ],
