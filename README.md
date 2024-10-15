@@ -3,15 +3,21 @@
 A new Flutter project under the chairperson of the Department of CSE,PESU.
 Current status: Awaiting deployment and bug fixes
 
-## Getting Started
+TODO: SAHAI:
 
-This project is a starting point for a Flutter application.
+Frontend:
+* chat screen throwing exception for multiple line message
+* login screen white portion should be till bottom of the screen
+* login screen use mediaquery 
+make sure login screen says department not dept
+* UI for credits page
+* UI for guestchat to be same as textchatscreen
+chatscreen lagging rpoblem fix
+* audiobutton on textchatscreen not redirecting to voicechatscreen fix
+colour of drawer fix
+* remove unnecessary tiles from drawer or add something in them
+see if keyboard popping up only first time user opens the app possible (instead of everytime the chat screen is opened)
+* add admin login(seperate site fr this) 
+* add accessing all submitted questions screen that only admin has access to
+try out haptic response on a new phone (sid will do)
 
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
