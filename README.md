@@ -21,3 +21,8 @@ see if keyboard popping up only first time user opens the app possible (instead 
 * add accessing all submitted questions screen that only admin has access to
 try out haptic response on a new phone (sid will do)
 
+
+ADDITIONS : 
+LOGOUT IS INCOMPLETE, I HAVE ADDED THE SHARED PREF PART EARLIER BUT NOT WORKED OVER IT PROPERLY, IF POSSIBLE PLS LOOK INTO THAT
+
+USE A SEPERATE FOLDER FOR CALLING API - REPO LAYER 
