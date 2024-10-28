@@ -44,7 +44,7 @@ class _LoginPageState extends State<LoginPage> {
         backgroundColor: const Color(0xff00377A),
         leadingWidth: screenwidth * 0.38,
         leading: Padding(
-          padding: const EdgeInsets.only(top: 5.0),
+          padding: EdgeInsets.only(top: screenheight * 0.01),
           child: Image.asset(
             'assets/images/pesu_white_logo.png',
           ),
@@ -57,7 +57,7 @@ class _LoginPageState extends State<LoginPage> {
             height: screenheight * 0.1,
           ),
           Padding(
-            padding: const EdgeInsets.only(left: 22.0),
+            padding: EdgeInsets.only(left: screenwidth * 0.052),
             child: Text('sah.ai',
                 style: GoogleFonts.inter(
                     fontSize: screenwidth * 0.124,
@@ -68,11 +68,11 @@ class _LoginPageState extends State<LoginPage> {
             height: screenheight * 0.001,
           ),
           Padding(
-            padding: const EdgeInsets.only(left: 22.0),
+            padding: EdgeInsets.only(left: screenwidth * 0.052),
             child: SizedBox(
               width: screenwidth * 0.75,
               child: Text(
-                'a student-led initiative to make your experience smoother at the Dept. of CSE',
+                'a student-led initiative to make your experience smoother at the Deptartment of CSE',
                 style: GoogleFonts.inter(
                     color: Colors.white.withOpacity(0.7),
                     fontSize: screenwidth * 0.054,
