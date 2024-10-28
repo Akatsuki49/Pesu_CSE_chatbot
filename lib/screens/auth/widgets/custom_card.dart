@@ -122,7 +122,10 @@ Widget CustomCard(
     elevation: 3,
     color: Colors.white,
     shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(30.78),
+      borderRadius: BorderRadius.only(
+        topLeft: Radius.circular(screenwidth * 0.085),
+        topRight: Radius.circular(screenwidth * 0.085),
+      ),
     ),
     child: SizedBox(
       width: screenwidth,
@@ -134,18 +137,19 @@ Widget CustomCard(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Padding(
-                padding: const EdgeInsets.only(top: 20),
+                padding: EdgeInsets.only(top: screenheight * 0.02),
                 child: Container(
                   width: screenwidth * 0.4,
                   height: screenheight * 0.008,
                   decoration: BoxDecoration(
                     color: color1,
-                    borderRadius: BorderRadius.circular(80.78),
+                    borderRadius: BorderRadius.circular(screenwidth * 0.15),
                   ),
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.only(left: 8.0, top: 20),
+                padding: EdgeInsets.only(
+                    left: screenwidth * 0.02, top: screenheight * 0.02),
                 child: Container(
                   width: screenwidth * 0.4,
                   height: screenheight * 0.008,
@@ -154,7 +158,7 @@ Widget CustomCard(
                       colors: [color1, color2],
                       stops: [progress, progress],
                     ),
-                    borderRadius: BorderRadius.circular(80.78),
+                    borderRadius: BorderRadius.circular(screenwidth * 0.15),
                   ),
                 ),
               ),
@@ -162,7 +166,7 @@ Widget CustomCard(
           ),
           SizedBox(height: screenheight * 0.02),
           Padding(
-            padding: const EdgeInsets.only(left: 30.0),
+            padding: EdgeInsets.only(left: screenwidth * 0.067),
             child: Text(
               headingText,
               style: GoogleFonts.inter(
@@ -173,7 +177,8 @@ Widget CustomCard(
             ),
           ),
           Padding(
-            padding: const EdgeInsets.only(left: 30.0, right: 20, top: 3),
+            padding: EdgeInsets.only(
+                left: screenwidth * 0.067, top: screenheight * 0.01),
             child: Text(
               subheadingText1,
               style: GoogleFonts.vazirmatn(
@@ -184,7 +189,7 @@ Widget CustomCard(
             ),
           ),
           Padding(
-            padding: const EdgeInsets.only(left: 30.0, right: 20),
+            padding: EdgeInsets.only(left: screenwidth * 0.067),
             child: isFirstPage
                 ? const Text('')
                 : RichText(
@@ -214,7 +219,10 @@ Widget CustomCard(
                   ),
           ),
           Padding(
-            padding: const EdgeInsets.only(left: 28.0, right: 20, top: 3),
+            padding: EdgeInsets.only(
+                left: screenwidth * 0.067,
+                top: screenheight * 0.01,
+                right: screenwidth * 0.067),
             child: ElevatedButton(
               onPressed: () {
                 if (isFirstPage) {
@@ -227,7 +235,7 @@ Widget CustomCard(
                 elevation: 2,
                 backgroundColor: color1,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30.78),
+                  borderRadius: BorderRadius.circular(screenwidth * 0.085),
                 ),
                 minimumSize: Size(screenwidth * 0.95, screenheight * 0.05),
               ),
@@ -260,7 +268,10 @@ Widget CustomCard(
           ),
           SizedBox(height: screenheight * 0.015),
           Padding(
-            padding: const EdgeInsets.only(left: 28.0, right: 20, top: 3),
+            padding: EdgeInsets.only(
+                left: screenwidth * 0.067,
+                top: screenheight * 0.01,
+                right: screenwidth * 0.067),
             child: ElevatedButton(
               onPressed: () {
                 if (isFirstPage) {
@@ -275,7 +286,7 @@ Widget CustomCard(
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xff4D4D4D),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30.78),
+                  borderRadius: BorderRadius.circular(screenwidth * 0.085),
                 ),
                 minimumSize: Size(screenwidth * 0.95, screenheight * 0.05),
               ),

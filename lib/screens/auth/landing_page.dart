@@ -22,6 +22,16 @@ class _LandingPageState extends State<LandingPage> {
   }
 
   @override
+/*************  ✨ Codeium Command ⭐  *************/
+  /// Builds the landing page with Pesu logo, tagline, and a button to navigate to the login page.
+  ///
+  /// The page is built with a Pesu logo at the top, followed by a tagline and a subtitle.
+  /// Below that, there is a button to navigate to the login page.
+  /// The button is wrapped in an [Expanded] widget to ensure it takes up the entire height of the screen.
+  /// The button is also wrapped in an [Align] widget to center it at the bottom of the screen.
+  /// The button itself is a [CustomCard] widget, which is a custom widget to display a card with a title, subtitle, and two buttons.
+  /// The progress value is currently set to 0.0, which is a dummy value for the first page.
+/******  4ec710a3-3f8d-464a-bccc-dbadc26d09a0  *******/
   Widget build(BuildContext context) {
     var screenwidth = MediaQuery.of(context).size.width;
     var screenheight = MediaQuery.of(context).size.height;
@@ -31,7 +41,7 @@ class _LandingPageState extends State<LandingPage> {
         backgroundColor: const Color(0xff00377A),
         leadingWidth: screenwidth * 0.38,
         leading: Padding(
-          padding: const EdgeInsets.only(top: 5.0),
+          padding: EdgeInsets.only(top: screenheight * 0.01),
           child: Image.asset(
             'assets/images/pesu_white_logo.png',
           ),
@@ -44,7 +54,7 @@ class _LandingPageState extends State<LandingPage> {
             height: screenheight * 0.1,
           ),
           Padding(
-            padding: const EdgeInsets.only(left: 22.0),
+            padding: EdgeInsets.only(left: screenwidth * 0.052),
             child: Text('sah.ai',
                 style: GoogleFonts.inter(
                     fontSize: screenwidth * 0.124,
@@ -55,11 +65,11 @@ class _LandingPageState extends State<LandingPage> {
             height: screenheight * 0.001,
           ),
           Padding(
-            padding: const EdgeInsets.only(left: 22.0),
+            padding: EdgeInsets.only(left: screenwidth * 0.052),
             child: SizedBox(
               width: screenwidth * 0.75,
               child: Text(
-                'a student-led initiative to make your experience smoother at the Dept. of CSE',
+                'a student-led initiative to make your experience smoother at the Deptartment of CSE',
                 style: GoogleFonts.inter(
                     color: Colors.white.withOpacity(0.7),
                     fontSize: screenwidth * 0.054,
