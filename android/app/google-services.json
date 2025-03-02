@@ -1,0 +1,78 @@
+{
+  "project_info": {
+    "project_number": "659707782919",
+    "project_id": "pesu-chatbot-393ee",
+    "storage_bucket": "pesu-chatbot-393ee.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:659707782919:android:66d777c6fa34b528dc47a2",
+        "android_client_info": {
+          "package_name": "com.example.sahai"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "659707782919-av571lhadtgi4h3lo1obbh6dm9s866qr.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.sahai",
+            "certificate_hash": "4d090064ffa3d6f9ef25f933461d1f68f3088ae7"
+          }
+        },
+        {
+          "client_id": "659707782919-o7e0nmalv6tgodlpkp1ms1iujk93g948.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.sahai",
+            "certificate_hash": "1efcc87a23f567bda16ae71992f4a9977020fc13"
+          }
+        },
+        {
+          "client_id": "659707782919-quunmujqb7dqhu43l67cm9cei0sni7n7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.sahai",
+            "certificate_hash": "afaab0c55c95e0311193af3dda8f2b4cc68531ea"
+          }
+        },
+        {
+          "client_id": "659707782919-u8oedkrp1h433tffo4fhp9dbp0o27url.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.sahai",
+            "certificate_hash": "d223151f4376a7159a7752f430be24726bcffae6"
+          }
+        },
+        {
+          "client_id": "659707782919-d0fptcl5oglpk9et0robanbr4hhalape.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBEpkqqio1GM4XR92hMnF3zZXh8xIenlFk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "659707782919-d0fptcl5oglpk9et0robanbr4hhalape.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "659707782919-6o9jf8kl3c89b178fvkd9rekqcut4bfi.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.sahai"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
