@@ -103,15 +103,23 @@ class _TextChatScreenState extends State<TextChatScreen> {
           children: [
             Expanded(
               child: Consumer<ChatProvider>(
-                builder: (context, chatProvider, child) {
+                builder: (context, provider, _) {
+                  if (provider.errorMessage != null) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(provider.errorMessage!)));
+                      provider.clearError();
+                    });
+                  }
                   return ListView.builder(
                     reverse: true,
-                    itemCount: chatProvider.messages.length,
+                    itemCount: provider.messages.length,
                     itemBuilder: (context, index) {
-                      final message = chatProvider.messages[index];
+                      final message = provider.messages[index];
                       return MessageBubble(
                         message: message.message,
                         isMe: message.isUser,
+                        timestamp: message.timestamp, // Add this line
                       );
                     },
                   );

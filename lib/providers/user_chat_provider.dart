@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:sahai/models/message_model.dart';
+import 'package:sahai/providers/base_chat_provider.dart';
 
-class ChatProvider with ChangeNotifier {
-  final List<MessageModel> _messages = [];
+class ChatProvider with ChangeNotifier, BaseChatProvider {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
-  List<MessageModel> get messages => List.unmodifiable(_messages);
+  DateTime _lastMessageTime = DateTime.now();
 
   Future<void> fetchMessages(String userId) async {
     try {
@@ -17,51 +16,49 @@ class ChatProvider with ChangeNotifier {
           .orderBy('deliveryTime', descending: true)
           .get();
 
-      _messages.clear();
+      messageList.clear(); // Use protected getter
       for (var doc in snapshot.docs) {
-        _messages.add(MessageModel(
+        final deliveryTime = (doc['deliveryTime'] as Timestamp).toDate();
+
+        // Use addMessage() for proper sorting/notification
+        addMessage(MessageModel(
           message: doc['message'],
           isUser: true,
-          timestamp: (doc['deliveryTime'] as Timestamp).toDate(),
+          timestamp: deliveryTime,
         ));
-        _messages.add(MessageModel(
+
+        addMessage(MessageModel(
           message: doc['response'],
           isUser: false,
-          timestamp: (doc['deliveryTime'] as Timestamp)
-              .toDate()
-              .add(Duration(milliseconds: 1)),
+          timestamp: deliveryTime, // No +1ms needed
         ));
       }
-      _sortMessages();
-      notifyListeners();
     } catch (e) {
-      print('Error fetching messages: $e');
+      setError('Failed to load history: ${e.toString()}');
     }
   }
 
   Future<void> sendMessage(String userId, String message) async {
     try {
-      final timeStamp = DateTime.now();
-      _messages.add(
-          MessageModel(message: message, isUser: true, timestamp: timeStamp));
-      notifyListeners();
+      if (DateTime.now().difference(_lastMessageTime) < Duration(seconds: 1))
+        return;
+      _lastMessageTime = DateTime.now();
 
-      String response = await generateResponse(message);
-      _messages.add(MessageModel(
-          message: response,
-          isUser: false,
-          timestamp: timeStamp.add(Duration(milliseconds: 1))));
-      _sortMessages();
-      notifyListeners();
+      final trimmed = message.trim();
+      if (trimmed.isEmpty) return;
 
-      await _storeInFirestore(userId, message, response, timeStamp);
+      addMessage(MessageModel(
+          message: trimmed, isUser: true, timestamp: DateTime.now()));
+
+      String response = await generateResponse(trimmed);
+
+      addMessage(MessageModel(
+          message: response, isUser: false, timestamp: DateTime.now()));
+
+      await _storeInFirestore(userId, trimmed, response, DateTime.now());
     } catch (e) {
-      print('Error sending message: $e');
+      setError('Failed to send message: ${e.toString()}');
     }
-  }
-
-  void _sortMessages() {
-    _messages.sort((a, b) => b.timestamp.compareTo(a.timestamp));
   }
 
   Future<String> generateResponse(String message) async {
