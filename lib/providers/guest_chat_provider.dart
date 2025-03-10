@@ -1,35 +1,47 @@
-import 'dart:convert';
-
-// import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:sahai/models/message_model.dart';
 import 'package:sahai/providers/base_chat_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class GuestChatProvider with ChangeNotifier, BaseChatProvider {
-  // final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  Future<void> sendMessage(String message) async {
+  // Split the sendMessage into two functions for separate UI updates
+  void addUserMessage(String message) {
     try {
       final trimmed = message.trim();
       if (trimmed.isEmpty) return;
 
-      // USE BASE METHOD:
+      // Add user message to UI
       addMessage(MessageModel(
-          message: trimmed,
-          isUser: true,
-          timestamp: DateTime.now() // ✅ FIXED TIMESTAMP
-          ));
+          message: trimmed, isUser: true, timestamp: DateTime.now()));
 
+      notifyListeners();
+    } catch (e) {
+      setError('Failed to add user message: ${e.toString()}');
+    }
+  }
+
+  //replace with api
+  Future<void> addBotResponse(String message) async {
+    try {
+      final trimmed = message.trim();
+      if (trimmed.isEmpty) return;
+
+      // Generate response
       String response = await generateResponse(trimmed);
 
+      // Add bot response to UI
       addMessage(MessageModel(
-          message: response,
-          isUser: false,
-          timestamp: DateTime.now() // ✅ FIXED TIMESTAMP
-          ));
+          message: response, isUser: false, timestamp: DateTime.now()));
+
+      notifyListeners();
     } catch (e) {
-      setError('Failed to send message: ${e.toString()}');
+      setError('Failed to get response: ${e.toString()}');
     }
+  }
+
+  // Keep the original function for compatibility
+  Future<void> sendMessage(String message) async {
+    addUserMessage(message);
+    await addBotResponse(message);
   }
 
   Future<String> generateResponse(String message) async {
@@ -37,34 +49,8 @@ class GuestChatProvider with ChangeNotifier, BaseChatProvider {
     return 'Mock response to: $message';
   }
 
-  // ADD AT BOTTOM OF FILE:
   @override
   void dispose() {
-    _cacheMessages();
     super.dispose();
-  }
-
-  void _cacheMessages() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(
-        'guest_messages',
-        messageList // ✅ Use protected getter
-            .map((msg) => jsonEncode({
-                  'message': msg.message,
-                  'isUser': msg.isUser,
-                  'timestamp': msg.timestamp.toIso8601String(),
-                }))
-            .toList());
-  }
-
-  Future<void> loadCachedMessages() async {
-    final prefs = await SharedPreferences.getInstance();
-    final cached = prefs.getStringList('guest_messages') ?? [];
-    messageList.addAll(cached.map((json) => MessageModel(
-          message: jsonDecode(json)['message'],
-          isUser: jsonDecode(json)['isUser'],
-          timestamp: DateTime.parse(jsonDecode(json)['timestamp']),
-        )));
-    notifyListeners();
   }
 }

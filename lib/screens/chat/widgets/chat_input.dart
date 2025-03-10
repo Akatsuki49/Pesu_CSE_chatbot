@@ -12,22 +12,23 @@ class ChatInput extends StatefulWidget {
 class _ChatInputState extends State<ChatInput> {
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
+  bool _isSending = false;
   bool _isFocused = false;
-
-  void _handleSubmit() {
-    if (_controller.text.isNotEmpty) {
-      widget.onSubmitted(_controller.text);
-      _controller.clear();
-    }
-  }
+  bool _showEmptyError = false;
+  static const int _maxChars = 1000;
+  static const Color _themeColor = Color(0xff00377A);
 
   @override
   void initState() {
     super.initState();
     _focusNode.addListener(() {
-      setState(() {
-        _isFocused = _focusNode.hasFocus;
-      });
+      if (mounted) {
+        setState(() {
+          _isFocused = _focusNode.hasFocus;
+          // Clear error when focusing back in the field
+          if (_isFocused) _showEmptyError = false;
+        });
+      }
     });
   }
 
@@ -38,49 +39,177 @@ class _ChatInputState extends State<ChatInput> {
     super.dispose();
   }
 
+  void _handleSubmit() async {
+    final trimmed = _controller.text.trim();
+
+    if (trimmed.isEmpty) {
+      setState(() => _showEmptyError = true);
+      _focusNode.requestFocus();
+      return;
+    }
+
+    if (trimmed.length > _maxChars) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Message too long (max 1000 chars)'),
+          duration: Duration(seconds: 1),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final messageText = trimmed;
+    _controller.clear();
+
+    setState(() {
+      _isSending = true;
+      _showEmptyError = false;
+    });
+
+    try {
+      await widget.onSubmitted(messageText);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to send message: ${e.toString()}'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isSending = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    var screenwidth = MediaQuery.of(context).size.width;
-    var screenheight = MediaQuery.of(context).size.height;
+    final mediaQuery = MediaQuery.of(context);
+    final screenWidth = mediaQuery.size.width;
+    final screenHeight = mediaQuery.size.height;
+    final bottomInset = mediaQuery.viewInsets.bottom;
+
+    // Adjust padding when keyboard is visible
+    final verticalPadding =
+        bottomInset > 0 ? screenHeight * 0.01 : screenHeight * 0.02;
+
     return Padding(
       padding: EdgeInsets.symmetric(
-          horizontal: screenwidth * 0.04, vertical: screenheight * 0.03),
-      child: Row(
+        horizontal: screenWidth * 0.04,
+        vertical: verticalPadding,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: SizedBox(
-              height: screenheight *
-                  0.06, // Adjust this value to set the height of the TextField
-              child: TextField(
-                controller: _controller,
-                focusNode: _focusNode,
-                onSubmitted: (_) => _handleSubmit(),
-                decoration: InputDecoration(
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: screenwidth * 0.03,
-                    vertical: screenheight * 0.01,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: screenHeight * 0.15, // Max 15% of screen height
                   ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(40.0),
+                  child: TextField(
+                    controller: _controller,
+                    focusNode: _focusNode,
+                    maxLines: null, // Allows unlimited lines
+                    keyboardType: TextInputType.multiline,
+                    textCapitalization: TextCapitalization.sentences,
+                    textInputAction: TextInputAction.newline,
+                    onChanged: (text) {
+                      // Clear error when typing
+                      if (_showEmptyError && text.isNotEmpty) {
+                        setState(() => _showEmptyError = false);
+                      } else {
+                        setState(() {});
+                      }
+                    },
+                    decoration: InputDecoration(
+                      hintText: "Type your message...",
+                      hintStyle: TextStyle(
+                        color: _themeColor.withOpacity(0.6),
+                      ),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: screenWidth * 0.04,
+                        vertical: screenHeight * 0.012,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24.0),
+                        borderSide: BorderSide(
+                          color: _showEmptyError ? Colors.red : _themeColor,
+                          width: 1.0,
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24.0),
+                        borderSide: BorderSide(
+                          color: _showEmptyError
+                              ? Colors.red
+                              : _themeColor.withOpacity(0.5),
+                          width: 1.0,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24.0),
+                        borderSide: BorderSide(
+                          color: _showEmptyError ? Colors.red : _themeColor,
+                          width: 1.5,
+                        ),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      suffixIcon: _controller.text.isNotEmpty || _isFocused
+                          ? Container(
+                              margin: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: _themeColor,
+                                shape: BoxShape.circle,
+                              ),
+                              child: IconButton(
+                                icon: _isSending
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(
+                                        Icons.send,
+                                        color: Colors.white,
+                                      ),
+                                onPressed: _isSending ? null : _handleSubmit,
+                              ),
+                            )
+                          : null,
+                      counter: Text(
+                        "${_controller.text.length}/$_maxChars",
+                        style: TextStyle(
+                          color: _controller.text.length > _maxChars
+                              ? Colors.red
+                              : _themeColor.withOpacity(0.7),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
                   ),
-                  filled: true,
-                  hintStyle: TextStyle(color: Colors.grey[800]),
-                  hintText: "Message",
-                  fillColor: Colors.white70,
-                  suffixIcon: _isFocused
-                      ? IconButton(
-                          icon: Icon(Icons.send),
-                          onPressed: _handleSubmit,
-                        )
-                      : null,
+                ),
+              ),
+            ],
+          ),
+          // Elegant error message that appears below the text field
+          if (_showEmptyError)
+            Padding(
+              padding: const EdgeInsets.only(left: 16, top: 4),
+              child: Text(
+                "Please enter a message",
+                style: TextStyle(
+                  color: Colors.red[700],
+                  fontSize: 12,
                 ),
               ),
             ),
-          ),
-          IconButton(
-            icon: Icon(Icons.headphones_rounded, size: screenwidth * 0.09),
-            onPressed: _handleSubmit,
-          ),
         ],
       ),
     );

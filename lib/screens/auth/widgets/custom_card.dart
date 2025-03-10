@@ -44,6 +44,9 @@ Widget CustomCard(
 
       if (userCredential != null) {
         String? email = userCredential.user?.email;
+        if (email == null) {
+          throw AuthException('Failed to retrieve email from Google account');
+        }
         UserModel user = UserModel(
           uid: userCredential.user!.uid,
           email: email ?? '', // Use empty string as default when null

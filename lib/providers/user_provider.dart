@@ -17,21 +17,29 @@ class UserProvider with ChangeNotifier {
 
   Future<void> clearUser() async {
     _user = null;
-    notifyListeners();
+    notifyListeners(); // Add this to trigger UI update
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('uid');
-    await prefs.remove('email');
-    await prefs.remove('userType');
+    await Future.wait([
+      prefs.remove('uid'),
+      prefs.remove('email'),
+      prefs.remove('userType'),
+    ]);
   }
 
   Future<void> loadUser() async {
     final prefs = await SharedPreferences.getInstance();
     final uid = prefs.getString('uid');
-    final email = prefs.getString('email');
     final userType = prefs.getString('userType');
-    if (uid != null && email != null && userType != null) {
-      _user = UserModel(uid: uid, email: email, userType: userType);
-      notifyListeners();
+
+    if (uid == null || userType == null) {
+      _user = null;
+      return;
     }
+
+    _user = UserModel(
+      uid: uid,
+      email: prefs.getString('email') ?? '', // Default value
+      userType: userType,
+    );
   }
 }

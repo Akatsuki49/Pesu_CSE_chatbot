@@ -21,7 +21,7 @@ mixin BaseChatProvider on ChangeNotifier {
 
   // Shared logic
   void _sortMessages() {
-    _messages.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    _messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
   }
 
   void addMessage(MessageModel message) {
