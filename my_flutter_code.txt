@@ -1,0 +1,2166 @@
+
+
+
+==== /Users/shubh/development/sahai/sahai/lib/main.dart ====
+
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:sahai/firebase_options.dart';
+import 'package:sahai/providers/guest_chat_provider.dart';
+import 'package:sahai/providers/user_chat_provider.dart';
+import 'package:sahai/providers/user_provider.dart';
+import 'package:sahai/screens/splash_screen.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (context) => ChatProvider()),
+        ChangeNotifierProvider(create: (context) => UserProvider()),
+        ChangeNotifierProvider(create: (_) => GuestChatProvider()),
+      ],
+      child: MaterialApp(
+        title: 'Sah.ai',
+        theme: ThemeData(
+          primarySwatch: Colors.blue,
+        ),
+        home: const SplashScreen(),
+      ),
+    );
+  }
+}
+
+
+==== /Users/shubh/development/sahai/sahai/lib/models/message_model.dart ====
+
+class MessageModel {
+  final String message;
+  final bool isUser;
+  final DateTime timestamp;
+
+  MessageModel({
+    required this.message,
+    required this.isUser,
+    required this.timestamp,
+  });
+}
+
+
+==== /Users/shubh/development/sahai/sahai/lib/models/user_model.dart ====
+
+// In user_model.dart
+class UserModel {
+  final String uid;
+  final String? email;
+  final String userType;
+
+  UserModel({required this.uid, this.email, required this.userType});
+}
+
+
+==== /Users/shubh/development/sahai/sahai/lib/providers/base_chat_provider.dart ====
+
+import 'package:flutter/material.dart';
+import 'package:sahai/models/message_model.dart';
+
+mixin BaseChatProvider on ChangeNotifier {
+  // Private message storage
+  List<MessageModel> _messages = [];
+  String? _errorMessage;
+
+  // Public interface
+  List<MessageModel> get messages => List.unmodifiable(_messages);
+  String? get errorMessage => _errorMessage;
+
+  // Protected method for subclass access
+  @protected
+  List<MessageModel> get messageList => _messages;
+
+  void clearError() {
+    _errorMessage = null;
+    notifyListeners();
+  }
+
+  // Shared logic
+  void _sortMessages() {
+    _messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+  }
+
+  void addMessage(MessageModel message) {
+    _messages.add(message);
+    _sortMessages();
+    notifyListeners();
+  }
+
+  void deleteOldMessages({int days = 4}) {
+    final cutoff = DateTime.now().subtract(Duration(days: days));
+    _messages.removeWhere((msg) => msg.timestamp.isBefore(cutoff));
+    notifyListeners();
+  }
+
+  @protected
+  void setError(String message) {
+    _errorMessage = message;
+    notifyListeners();
+  }
+}
+
+
+==== /Users/shubh/development/sahai/sahai/lib/providers/guest_chat_provider.dart ====
+
+import 'package:flutter/material.dart';
+import 'package:sahai/models/message_model.dart';
+import 'package:sahai/providers/base_chat_provider.dart';
+
+class GuestChatProvider with ChangeNotifier, BaseChatProvider {
+  // Split the sendMessage into two functions for separate UI updates
+  void addUserMessage(String message) {
+    try {
+      final trimmed = message.trim();
+      if (trimmed.isEmpty) return;
+
+      // Add user message to UI
+      addMessage(MessageModel(
+          message: trimmed, isUser: true, timestamp: DateTime.now()));
+
+      notifyListeners();
+    } catch (e) {
+      setError('Failed to add user message: ${e.toString()}');
+    }
+  }
+
+  //replace with api
+  Future<void> addBotResponse(String message) async {
+    try {
+      final trimmed = message.trim();
+      if (trimmed.isEmpty) return;
+
+      // Generate response
+      String response = await generateResponse(trimmed);
+
+      // Add bot response to UI
+      addMessage(MessageModel(
+          message: response, isUser: false, timestamp: DateTime.now()));
+
+      notifyListeners();
+    } catch (e) {
+      setError('Failed to get response: ${e.toString()}');
+    }
+  }
+
+  // Keep the original function for compatibility
+  Future<void> sendMessage(String message) async {
+    addUserMessage(message);
+    await addBotResponse(message);
+  }
+
+  Future<String> generateResponse(String message) async {
+    await Future.delayed(const Duration(seconds: 1));
+    return 'Mock response to: $message';
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+}
+
+
+==== /Users/shubh/development/sahai/sahai/lib/providers/user_chat_provider.dart ====
+
+import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:sahai/models/message_model.dart';
+import 'package:sahai/providers/base_chat_provider.dart';
+
+class ChatProvider with ChangeNotifier, BaseChatProvider {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  DateTime _lastMessageTime = DateTime.now();
+  final int _pageSize = 30;
+  DocumentSnapshot? _lastDocument;
+  bool _hasMore = true;
+  bool _isLoading = false;
+  bool _isInitialFetch = true; // Track if this is the first fetch
+
+  // Getter for loading state
+  bool get isLoading => _isLoading;
+  bool get hasMoreMessages => _hasMore;
+  bool get isInitialFetch => _isInitialFetch;
+
+  // In ChatProvider class
+  Future<void> fetchMessages(String userId, {bool loadMore = false}) async {
+    if (!loadMore) {
+      messageList.clear();
+      _lastDocument = null;
+      _hasMore = true;
+      _isInitialFetch = true;
+    }
+
+    if (!_hasMore || _isLoading) return;
+
+    try {
+      _isLoading = true;
+      notifyListeners();
+
+      // Always fetch in descending order (newest first) for consistency
+      Query query = _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('chats')
+          .orderBy('deliveryTime', descending: true)
+          .limit(_pageSize);
+
+      if (_lastDocument != null) {
+        query = query.startAfterDocument(_lastDocument!);
+      }
+
+      final snapshot = await query.get();
+
+      if (snapshot.docs.isEmpty) {
+        _hasMore = false;
+        _isLoading = false;
+        _isInitialFetch = false;
+        notifyListeners();
+        return;
+      }
+
+      _lastDocument = snapshot.docs.last;
+
+      if (snapshot.docs.length < _pageSize) {
+        _hasMore = false;
+      }
+
+      List<MessageModel> newMessages = [];
+
+      // Process messages in pairs
+      for (var doc in snapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final deliveryTime = (data['deliveryTime'] as Timestamp).toDate();
+
+        // Create a pair of messages with user first, then bot
+        // Create user message with exact timestamp
+        newMessages.add(MessageModel(
+          message: data['message'],
+          isUser: true,
+          timestamp: deliveryTime,
+        ));
+
+        // Create response message with slightly later timestamp
+        newMessages.add(MessageModel(
+          message: data['response'],
+          isUser: false,
+          timestamp: deliveryTime.add(Duration(milliseconds: 1)),
+        ));
+      }
+
+      // Since we're fetching newest first, reverse to get oldest first
+      newMessages = newMessages.reversed.toList();
+
+      // Check for duplicates
+      List<MessageModel> filteredMessages = [];
+      for (var msg in newMessages) {
+        bool isDuplicate = messageList.any((existingMsg) =>
+            existingMsg.message == msg.message &&
+            existingMsg.isUser == msg.isUser &&
+            existingMsg.timestamp.difference(msg.timestamp).inSeconds.abs() <
+                3);
+
+        if (!isDuplicate) {
+          filteredMessages.add(msg);
+        }
+      }
+
+      if (loadMore) {
+        // For pagination, add older messages at the beginning
+        messageList.insertAll(0, filteredMessages);
+      } else {
+        // For initial load, simply add messages
+        messageList.addAll(filteredMessages);
+      }
+
+      // Sort the entire list by timestamp to ensure correct order
+      messageList.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+      _isLoading = false;
+      _isInitialFetch = false;
+      notifyListeners();
+    } catch (e) {
+      _isLoading = false;
+      _isInitialFetch = false;
+      setError('Failed to load history: ${e.toString()}');
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadMoreMessages(String userId) async {
+    if (_hasMore && !_isLoading) {
+      await fetchMessages(userId, loadMore: true);
+    }
+  }
+
+  // Split the sendMessage into two functions for separate UI updates
+  Future<void> addUserMessage(String userId, String message) async {
+    try {
+      if (DateTime.now().difference(_lastMessageTime) < Duration(seconds: 1)) {
+        return;
+      }
+      _lastMessageTime = DateTime.now();
+
+      final trimmed = message.trim();
+      if (trimmed.isEmpty) return;
+
+      // Add user message to UI with current timestamp
+      final messageTimestamp = DateTime.now();
+      addMessage(MessageModel(
+          message: trimmed, isUser: true, timestamp: messageTimestamp));
+
+      notifyListeners();
+    } catch (e) {
+      setError('Failed to send message: ${e.toString()}');
+      debugPrint('Send message error: $e');
+    }
+  }
+
+  Future<void> addBotResponse(String userId, String message) async {
+    try {
+      final trimmed = message.trim();
+      if (trimmed.isEmpty) return;
+
+      // Generate bot response
+      String response = await generateResponse(trimmed);
+
+      // Use a timestamp slightly later than the user message
+      final responseTimestamp = DateTime.now();
+
+      // Add bot response to UI
+      addMessage(MessageModel(
+          message: response, isUser: false, timestamp: responseTimestamp));
+
+      // Store both message and response in Firestore
+      await _storeInFirestore(userId, trimmed, response, responseTimestamp);
+
+      notifyListeners();
+    } catch (e) {
+      setError('Failed to get response: ${e.toString()}');
+      debugPrint('Response error: $e');
+    }
+  }
+
+  // Keep the original function for compatibility
+  Future<void> sendMessage(String userId, String message) async {
+    await addUserMessage(userId, message);
+    await addBotResponse(userId, message);
+  }
+
+  Future<String> generateResponse(String message) async {
+    // This is a dummy function. Replace with actual API call later.
+    await Future.delayed(const Duration(seconds: 1));
+    return 'Mock response to: $message';
+  }
+
+  Future<void> _storeInFirestore(String userId, String message, String response,
+      DateTime timeStamp) async {
+    final data = {
+      'message': message,
+      'response': response,
+      'deliveryTime': timeStamp,
+    };
+    await _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('chats')
+        .add(data);
+  }
+}
+
+
+==== /Users/shubh/development/sahai/sahai/lib/providers/user_provider.dart ====
+
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sahai/models/user_model.dart';
+
+class UserProvider with ChangeNotifier {
+  UserModel? _user;
+  UserModel? get user => _user;
+
+  Future<void> setUser(UserModel user) async {
+    _user = user;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('uid', user.uid);
+    await prefs.setString('email', user.email!);
+    await prefs.setString('userType', user.userType);
+  }
+
+  Future<void> clearUser() async {
+    _user = null;
+    notifyListeners(); // Add this to trigger UI update
+    final prefs = await SharedPreferences.getInstance();
+    await Future.wait([
+      prefs.remove('uid'),
+      prefs.remove('email'),
+      prefs.remove('userType'),
+    ]);
+  }
+
+  Future<void> loadUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final uid = prefs.getString('uid');
+    final userType = prefs.getString('userType');
+
+    if (uid == null || userType == null) {
+      _user = null;
+      return;
+    }
+
+    _user = UserModel(
+      uid: uid,
+      email: prefs.getString('email') ?? '', // Default value
+      userType: userType,
+    );
+  }
+}
+
+
+==== /Users/shubh/development/sahai/sahai/lib/screens/auth/landing_page.dart ====
+
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:sahai/screens/auth/login_page.dart';
+import 'package:sahai/screens/auth/widgets/custom_card.dart';
+
+class LandingPage extends StatefulWidget {
+  const LandingPage({super.key});
+
+  @override
+  State<LandingPage> createState() => _LandingPageState();
+}
+
+class _LandingPageState extends State<LandingPage> {
+  double progress = 0.0; //dummy value for first page
+
+  void _navigateToLoginPage() {
+    //code to navigate to login page
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginPage()),
+    );
+  }
+
+  @override
+/*************  ✨ Codeium Command ⭐  *************/
+  /// Builds the landing page with Pesu logo, tagline, and a button to navigate to the login page.
+  ///
+  /// The page is built with a Pesu logo at the top, followed by a tagline and a subtitle.
+  /// Below that, there is a button to navigate to the login page.
+  /// The button is wrapped in an [Expanded] widget to ensure it takes up the entire height of the screen.
+  /// The button is also wrapped in an [Align] widget to center it at the bottom of the screen.
+  /// The button itself is a [CustomCard] widget, which is a custom widget to display a card with a title, subtitle, and two buttons.
+  /// The progress value is currently set to 0.0, which is a dummy value for the first page.
+/// ****  4ec710a3-3f8d-464a-bccc-dbadc26d09a0  ******
+  Widget build(BuildContext context) {
+    var screenwidth = MediaQuery.of(context).size.width;
+    var screenheight = MediaQuery.of(context).size.height;
+    return Scaffold(
+      backgroundColor: const Color(0xff00377A),
+      appBar: AppBar(
+        backgroundColor: const Color(0xff00377A),
+        leadingWidth: screenwidth * 0.38,
+        leading: Padding(
+          padding: EdgeInsets.only(top: screenheight * 0.01),
+          child: Image.asset(
+            'assets/images/pesu_white_logo.png',
+          ),
+        ),
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            height: screenheight * 0.1,
+          ),
+          Padding(
+            padding: EdgeInsets.only(left: screenwidth * 0.052),
+            child: Text('sah.ai',
+                style: GoogleFonts.inter(
+                    fontSize: screenwidth * 0.124,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold)),
+          ),
+          SizedBox(
+            height: screenheight * 0.001,
+          ),
+          Padding(
+            padding: EdgeInsets.only(left: screenwidth * 0.052),
+            child: SizedBox(
+              width: screenwidth * 0.75,
+              child: Text(
+                'a student-led initiative to make your experience smoother at the Deptartment of CSE',
+                style: GoogleFonts.inter(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: screenwidth * 0.054,
+                    fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+          SizedBox(
+            height: screenheight * 0.2,
+          ),
+          Expanded(
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: CustomCard(
+                context,
+                'Welcome to sah.ai! 👋🏻',
+                'Your ultimate guide to navigating anything at PESU CSE and studying with ease!',
+                'Get Started',
+                'Proceed as Guest',
+                true,
+                progress,
+                _navigateToLoginPage,
+              ), //true for first page and false for second page
+            ),
+          )
+        ],
+      ),
+    );
+  }
+}
+
+
+==== /Users/shubh/development/sahai/sahai/lib/screens/auth/login_page.dart ====
+
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:sahai/screens/auth/widgets/custom_card.dart';
+
+class LoginPage extends StatefulWidget {
+  const LoginPage({super.key});
+
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  double progress = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _startProgressAnimation();
+  }
+
+  void _startProgressAnimation() {
+    const duration = Duration(milliseconds: 20);
+    const step = 0.023;
+
+    void updateProgress() {
+      if (progress < 1.0) {
+        setState(() {
+          progress += step;
+        });
+        Future.delayed(duration, updateProgress);
+      }
+    }
+
+    updateProgress();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    var screenwidth = MediaQuery.of(context).size.width;
+    var screenheight = MediaQuery.of(context).size.height;
+    return Scaffold(
+      backgroundColor: const Color(0xff00377A),
+      appBar: AppBar(
+        backgroundColor: const Color(0xff00377A),
+        leadingWidth: screenwidth * 0.38,
+        leading: Padding(
+          padding: EdgeInsets.only(top: screenheight * 0.01),
+          child: Image.asset(
+            'assets/images/pesu_white_logo.png',
+          ),
+        ),
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            height: screenheight * 0.1,
+          ),
+          Padding(
+            padding: EdgeInsets.only(left: screenwidth * 0.052),
+            child: Text('sah.ai',
+                style: GoogleFonts.inter(
+                    fontSize: screenwidth * 0.124,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold)),
+          ),
+          SizedBox(
+            height: screenheight * 0.001,
+          ),
+          Padding(
+            padding: EdgeInsets.only(left: screenwidth * 0.052),
+            child: SizedBox(
+              width: screenwidth * 0.75,
+              child: Text(
+                'a student-led initiative to make your experience smoother at the Deptartment of CSE',
+                style: GoogleFonts.inter(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: screenwidth * 0.054,
+                    fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+          SizedBox(
+            height: screenheight * 0.2,
+          ),
+          Expanded(
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: CustomCard(
+                  context,
+                  'Please select one:',
+                  'This will help sah.ai fine tune its responses according to your needs',
+                  'I’m a student',
+                  'I’m a staff',
+                  false,
+                  progress,
+                  null), //true for first page and false for second page
+            ),
+          )
+        ],
+      ),
+    );
+  }
+}
+
+
+==== /Users/shubh/development/sahai/sahai/lib/screens/auth/services/auth_service.dart ====
+
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sahai/models/user_model.dart';
+
+class AuthService {
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: ['email', 'profile'],
+  );
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  Future<UserCredential?> signInWithGoogle() async {
+    try {
+      final googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) {
+        throw AuthException('Sign in cancelled by user');
+      }
+
+      final googleAuth = await googleUser.authentication;
+      if (googleAuth.accessToken == null || googleAuth.idToken == null) {
+        throw AuthException('Failed to get Google authentication tokens');
+      }
+
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final userCredential = await _auth.signInWithCredential(credential);
+      if (userCredential.user == null) {
+        throw AuthException('Failed to authenticate with Firebase');
+      }
+
+      return userCredential;
+    } on FirebaseAuthException catch (e) {
+      throw _handleFirebaseAuthError(e);
+    } catch (e) {
+      throw AuthException('Sign in failed: ${e.toString()}');
+    }
+  }
+
+  UserModel? getCurrentUser() {
+    final user = _auth.currentUser;
+    if (user == null) return null;
+
+    final email = user.email ?? '';
+    return UserModel(
+      uid: user.uid,
+      email: email,
+      userType: _isPesuEmail(email) ? 'pesu' : 'guest',
+    );
+  }
+
+  Future<void> signOut() async {
+    try {
+      if (_auth.currentUser != null) {
+        await Future.wait([
+          _googleSignIn.signOut(),
+          _auth.signOut(),
+        ]);
+      }
+    } on FirebaseAuthException catch (e) {
+      throw AuthException('Logout failed: ${_handleFirebaseAuthError(e)}');
+    } catch (e) {
+      throw AuthException('Logout failed: ${e.toString()}');
+    }
+  }
+
+  bool _isPesuEmail(String email) {
+    return email.endsWith('@pesu.pes.edu') || email.endsWith('@pes.edu');
+  }
+
+  String _handleFirebaseAuthError(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'account-exists-with-different-credential':
+        return 'Account already exists with different credentials';
+      case 'invalid-credential':
+        return 'Invalid authentication credentials';
+      case 'user-disabled':
+        return 'This account has been disabled';
+      case 'user-not-found':
+        return 'No account found with this email';
+      case 'wrong-password':
+        return 'Incorrect password';
+      case 'network-request-failed':
+        return 'Network error occurred. Please check your connection';
+      default:
+        return 'Authentication failed: ${e.message}';
+    }
+  }
+}
+
+class AuthException implements Exception {
+  final String message;
+  AuthException(this.message);
+
+  @override
+  String toString() => message;
+}
+
+
+==== /Users/shubh/development/sahai/sahai/lib/screens/auth/widgets/custom_card.dart ====
+
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:sahai/screens/auth/services/auth_service.dart';
+import 'package:sahai/screens/chat/guest_chat_screen.dart';
+import 'package:sahai/screens/chat/text_chat_screen.dart';
+
+import 'package:provider/provider.dart';
+import 'package:sahai/providers/user_provider.dart';
+
+import 'package:sahai/models/user_model.dart';
+
+Widget CustomCard(
+  BuildContext context,
+  String headingText,
+  String subheadingText1,
+  String buttonText1,
+  String buttonText2,
+  bool isFirstPage,
+  double progress,
+  Function? navigateToLoginPage,
+) {
+  Color color1 = const Color(0xffF37C00);
+  Color color2 = const Color(0xffACACAC);
+  double screenwidth = MediaQuery.of(context).size.width;
+  double screenheight = MediaQuery.of(context).size.height;
+  Future<void> handleSignIn(String userType) async {
+    final AuthService authService = AuthService();
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return const Center(child: CircularProgressIndicator());
+        },
+      );
+
+      UserCredential? userCredential = await authService.signInWithGoogle();
+
+      // Hide loading indicator
+      Navigator.of(context).pop();
+
+      if (userCredential != null) {
+        String? email = userCredential.user?.email;
+        if (email == null) {
+          throw AuthException('Failed to retrieve email from Google account');
+        }
+        UserModel user = UserModel(
+          uid: userCredential.user!.uid,
+          email: email ?? '', // Use empty string as default when null
+          userType: (email != null && email.endsWith('@pesu.pes.edu'))
+              ? 'pesu'
+              : 'guest',
+        );
+        Provider.of<UserProvider>(context, listen: false).setUser(user);
+
+        if (user.userType == 'pesu') {
+          Navigator.pushReplacement(context,
+              MaterialPageRoute(builder: (context) => const TextChatScreen()));
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Please sign-in with your university email')));
+        }
+      } else {
+        // User cancelled the sign-in process
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Sign-in was cancelled')));
+      }
+    } catch (e) {
+      // Hide loading indicator in case of error
+      Navigator.of(context).pop();
+
+      print('Error signing in with Google: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sign-in failed. Please try again.')));
+    }
+  }
+
+  return Card(
+    elevation: 3,
+    color: Colors.white,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.only(
+        topLeft: Radius.circular(screenwidth * 0.085),
+        topRight: Radius.circular(screenwidth * 0.085),
+      ),
+    ),
+    child: SizedBox(
+      width: screenwidth,
+      height: screenheight,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Padding(
+                padding: EdgeInsets.only(top: screenheight * 0.02),
+                child: Container(
+                  width: screenwidth * 0.4,
+                  height: screenheight * 0.008,
+                  decoration: BoxDecoration(
+                    color: color1,
+                    borderRadius: BorderRadius.circular(screenwidth * 0.15),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: EdgeInsets.only(
+                    left: screenwidth * 0.02, top: screenheight * 0.02),
+                child: Container(
+                  width: screenwidth * 0.4,
+                  height: screenheight * 0.008,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [color1, color2],
+                      stops: [progress, progress],
+                    ),
+                    borderRadius: BorderRadius.circular(screenwidth * 0.15),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: screenheight * 0.02),
+          Padding(
+            padding: EdgeInsets.only(left: screenwidth * 0.067),
+            child: Text(
+              headingText,
+              style: GoogleFonts.inter(
+                fontSize: screenwidth * 0.055,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.only(
+                left: screenwidth * 0.067, top: screenheight * 0.01),
+            child: Text(
+              subheadingText1,
+              style: GoogleFonts.vazirmatn(
+                fontSize: screenwidth * 0.04,
+                fontWeight: FontWeight.w400,
+                color: const Color(0xff545454),
+              ),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.only(left: screenwidth * 0.067),
+            child: isFirstPage
+                ? const Text('')
+                : RichText(
+                    text: TextSpan(
+                        text: 'or continue as ',
+                        style: GoogleFonts.vazirmatn(
+                          fontSize: screenwidth * 0.04,
+                          fontWeight: FontWeight.w400,
+                          color: const Color(0xff545454),
+                        ),
+                        children: [
+                          TextSpan(
+                            text: 'Guest',
+                            style: GoogleFonts.vazirmatn(
+                              fontSize: screenwidth * 0.042,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xff545454),
+                            ),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (context) =>
+                                          const GuestChatScreen())),
+                          )
+                        ]),
+                  ),
+          ),
+          Padding(
+            padding: EdgeInsets.only(
+                left: screenwidth * 0.067,
+                top: screenheight * 0.01,
+                right: screenwidth * 0.067),
+            child: ElevatedButton(
+              onPressed: () {
+                if (isFirstPage) {
+                  navigateToLoginPage?.call();
+                } else {
+                  handleSignIn('student');
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                elevation: 2,
+                backgroundColor: color1,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(screenwidth * 0.085),
+                ),
+                minimumSize: Size(screenwidth * 0.95, screenheight * 0.05),
+              ),
+              child: isFirstPage
+                  ? Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          buttonText1,
+                          style: GoogleFonts.inter(
+                            fontSize: screenwidth * 0.05,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const Icon(Icons.arrow_forward, color: Colors.white),
+                      ],
+                    )
+                  : Center(
+                      child: Text(
+                        buttonText1,
+                        style: GoogleFonts.inter(
+                          fontSize: screenwidth * 0.04,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+            ),
+          ),
+          SizedBox(height: screenheight * 0.015),
+          Padding(
+            padding: EdgeInsets.only(
+                left: screenwidth * 0.067,
+                top: screenheight * 0.01,
+                right: screenwidth * 0.067),
+            child: ElevatedButton(
+              onPressed: () {
+                if (isFirstPage) {
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const GuestChatScreen()));
+                } else {
+                  handleSignIn('staff');
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xff4D4D4D),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(screenwidth * 0.085),
+                ),
+                minimumSize: Size(screenwidth * 0.95, screenheight * 0.05),
+              ),
+              child: Text(
+                buttonText2,
+                style: GoogleFonts.inter(
+                  fontSize: screenwidth * 0.04,
+                  fontWeight: isFirstPage ? FontWeight.w400 : FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+
+==== /Users/shubh/development/sahai/sahai/lib/screens/chat/audio_chat_screen.dart ====
+
+import 'package:flutter/material.dart';
+// have to add a speech-to-text package for audio input
+// import 'package:speech_to_text/speech_to_text.dart' as stt;
+
+class AudioChatScreen extends StatefulWidget {
+  const AudioChatScreen({super.key});
+
+  @override
+  _AudioChatScreenState createState() => _AudioChatScreenState();
+}
+
+class _AudioChatScreenState extends State<AudioChatScreen> {
+  // stt.SpeechToText _speech;
+  final bool _isListening = false;
+  final String _text = 'Press the button and start speaking';
+
+  @override
+  void initState() {
+    super.initState();
+    // _speech = stt.SpeechToText();
+  }
+
+  void _listen() async {
+    // Implement speech-to-text functionality
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Audio Chat'),
+        backgroundColor: Colors.blue,
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: FloatingActionButton(
+        onPressed: _listen,
+        child: Icon(_isListening ? Icons.mic : Icons.mic_none),
+      ),
+      body: SingleChildScrollView(
+        reverse: true,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(30.0, 30.0, 30.0, 150.0),
+          child: Text(
+            _text,
+            style: const TextStyle(
+              fontSize: 32.0,
+              color: Colors.black,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+==== /Users/shubh/development/sahai/sahai/lib/screens/chat/guest_chat_screen.dart ====
+
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:sahai/providers/guest_chat_provider.dart';
+import 'package:sahai/screens/auth/login_page.dart';
+import 'package:sahai/screens/chat/widgets/chat_input.dart';
+import 'package:sahai/screens/chat/widgets/message_bubble.dart';
+import 'package:sahai/screens/auth/landing_page.dart';
+
+class GuestChatScreen extends StatefulWidget {
+  const GuestChatScreen({super.key});
+
+  @override
+  _GuestChatScreenState createState() => _GuestChatScreenState();
+}
+
+class _GuestChatScreenState extends State<GuestChatScreen> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  void _handleSubmitted(String text) {
+    final chatProvider = Provider.of<GuestChatProvider>(context, listen: false);
+
+    // Add user message
+    chatProvider.addUserMessage(text);
+
+    // Scroll after user message is added
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _scrollToBottom();
+      }
+    });
+
+    // Add bot response after a delay
+    chatProvider.addBotResponse(text).then((_) {
+      // Scroll again after bot response is added
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _scrollToBottom();
+        });
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    var screenWidth = MediaQuery.of(context).size.width;
+    return Scaffold(
+      appBar: AppBar(
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        toolbarHeight: 80,
+        leadingWidth: screenWidth,
+        leading: Row(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Image.asset(
+                'assets/images/pesu_logo_png.png',
+                height: 100,
+                width: 100,
+              ),
+            ),
+            SizedBox(width: screenWidth * 0.1),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Image.asset(
+                'assets/images/sah.ai_greyText.png',
+                height: 80,
+                width: 80,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: ElevatedButton(
+              style: ButtonStyle(
+                backgroundColor: MaterialStateProperty.all<Color>(
+                  const Color(0xff00377A),
+                ),
+              ),
+              onPressed: () {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (context) => LoginPage()),
+                );
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(10.0),
+                child: Text('Login',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: Consumer<GuestChatProvider>(
+              builder: (context, provider, _) {
+                if (provider.errorMessage != null) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(provider.errorMessage!)));
+                    provider.clearError();
+                  });
+                }
+                return ListView.builder(
+                  controller: _scrollController,
+                  reverse: false,
+                  itemCount: provider.messages.length,
+                  itemBuilder: (context, index) {
+                    final message = provider.messages[index];
+                    return MessageBubble(
+                      message: message.message,
+                      isMe: message.isUser,
+                      timestamp: message.timestamp,
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          ChatInput(onSubmitted: _handleSubmitted),
+        ],
+      ),
+    );
+  }
+}
+
+
+==== /Users/shubh/development/sahai/sahai/lib/screens/chat/services/logout.dart ====
+
+
+
+
+==== /Users/shubh/development/sahai/sahai/lib/screens/chat/text_chat_screen.dart ====
+
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:sahai/providers/user_provider.dart';
+import 'package:sahai/providers/user_chat_provider.dart';
+import 'package:sahai/screens/auth/landing_page.dart';
+import 'package:sahai/screens/auth/services/auth_service.dart';
+import 'package:sahai/screens/chat/widgets/chat_input.dart';
+import 'package:sahai/screens/chat/widgets/date_header.dart';
+import 'package:sahai/screens/chat/widgets/message_bubble.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
+
+class TextChatScreen extends StatefulWidget {
+  const TextChatScreen({super.key});
+
+  @override
+  _TextChatScreenState createState() => _TextChatScreenState();
+}
+
+class _TextChatScreenState extends State<TextChatScreen> {
+  final AuthService _authService = AuthService();
+  late String? _userId;
+  final ScrollController _scrollController = ScrollController();
+  bool _isLoadingMore = false;
+  bool _initialScrollComplete = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _setupScrollController();
+
+    // Using Future.microtask ensures this code runs after the current build cycle
+    Future.microtask(() {
+      if (mounted) {
+        _userId = Provider.of<UserProvider>(context, listen: false).user?.uid;
+        if (_userId != null) {
+          Provider.of<ChatProvider>(context, listen: false)
+              .fetchMessages(_userId!)
+              .then((_) {
+            _scrollToBottomWithDelay();
+          });
+        }
+      }
+    });
+  }
+
+  void _setupScrollController() {
+    _scrollController.addListener(() {
+      // When we reach the top of the list and there are more messages to load
+      if (_scrollController.position.pixels <= 0 &&
+          !_isLoadingMore &&
+          Provider.of<ChatProvider>(context, listen: false).hasMoreMessages) {
+        _loadMoreMessages();
+      }
+    });
+  }
+
+  // Adding a slight delay ensures the scroll happens after layout is complete
+  void _scrollToBottomWithDelay() {
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted && !_initialScrollComplete) {
+        _scrollToBottom();
+        _initialScrollComplete = true;
+      }
+    });
+  }
+
+  Future<void> _loadMoreMessages() async {
+    if (_userId == null) return;
+
+    setState(() {
+      _isLoadingMore = true;
+    });
+
+    // Save current position
+    final previousPosition = _scrollController.position.pixels;
+    final previousMaxExtent = _scrollController.position.maxScrollExtent;
+
+    await Provider.of<ChatProvider>(context, listen: false)
+        .loadMoreMessages(_userId!);
+
+    // After loading more messages, restore scroll position
+    if (mounted) {
+      setState(() {
+        _isLoadingMore = false;
+      });
+
+      // Wait for layout to complete then adjust scroll position
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          final newMaxExtent = _scrollController.position.maxScrollExtent;
+          final delta = newMaxExtent - previousMaxExtent;
+          _scrollController.jumpTo(previousPosition + delta);
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  Future<void> _handleSubmitted(String text) async {
+    if (text.trim().isEmpty || _userId == null) return;
+
+    final chatProvider = Provider.of<ChatProvider>(context, listen: false);
+
+    // Add user message
+    await chatProvider.addUserMessage(_userId!, text);
+
+    // Scroll after user message is added
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _scrollToBottom();
+      }
+    });
+
+    // Get bot response
+    await chatProvider.addBotResponse(_userId!, text);
+
+    // Scroll again after bot response is added
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _scrollToBottom();
+      }
+    });
+  }
+
+  Future<void> _handleLogout() async {
+    print("Attempting to log out...");
+
+    await _authService.signOut();
+    print("Signed out successfully.");
+
+    // Clear user info and messages
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    await userProvider.clearUser(); // Clear user data
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+
+    print("Preferences cleared!");
+
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => const LandingPage()),
+      (Route<dynamic> route) => false,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    var screenWidth = MediaQuery.of(context).size.width;
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        appBar: AppBar(
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black,
+          toolbarHeight: 80,
+          leadingWidth: screenWidth,
+          leading: Row(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Image.asset(
+                  'assets/images/pesu_logo_png.png',
+                  height: 100,
+                  width: 100,
+                ),
+              ),
+              SizedBox(width: screenWidth * 0.27),
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Image.asset(
+                  'assets/images/sah.ai_greyText.png',
+                  height: 80,
+                  width: 80,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            IconButton(
+                icon: Icon(Icons.logout),
+                onPressed: () async {
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: Text(
+                        'Confirm Logout?',
+                        style: TextStyle(
+                          fontSize: 20,
+                          color: Colors.black,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: Container(
+                            padding: EdgeInsets.symmetric(horizontal: 16),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(10.0),
+                              child: Text('Cancel',
+                                  style: TextStyle(color: Colors.black)),
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: Container(
+                            padding: EdgeInsets.symmetric(horizontal: 16),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(20),
+                              color: const Color(0xff00377A),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(10.0),
+                              child: Text('Logout',
+                                  style: TextStyle(color: Colors.white)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirmed ?? false) _handleLogout();
+                }),
+          ],
+        ),
+        body: Column(
+          children: [
+            Expanded(
+              child: Consumer<ChatProvider>(
+                builder: (context, provider, _) {
+                  if (provider.errorMessage != null) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(provider.errorMessage!)));
+                      provider.clearError();
+                    });
+                  }
+
+                  // Show loading indicator during initial fetch instead of "No messages"
+                  if (provider.isInitialFetch) {
+                    return Center(
+                      child: CircularProgressIndicator(),
+                    );
+                  }
+
+                  if (provider.messages.isEmpty) {
+                    return Center(
+                      child: Text(
+                        "No messages yet. Start a conversation!",
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 16,
+                        ),
+                      ),
+                    );
+                  }
+
+                  // Group messages by date
+                  final Map<String, List<int>> messagesByDate = {};
+                  for (int i = 0; i < provider.messages.length; i++) {
+                    final message = provider.messages[i];
+                    final date =
+                        DateFormat('yyyy-MM-dd').format(message.timestamp);
+                    messagesByDate.putIfAbsent(date, () => []);
+                    messagesByDate[date]!.add(i);
+                  }
+
+                  // Get sorted dates
+                  final sortedDates = messagesByDate.keys.toList()
+                    ..sort((a, b) => a.compareTo(b));
+
+                  return Stack(
+                    children: [
+                      // Loading indicator at the top
+                      if (_isLoadingMore)
+                        Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          child: LinearProgressIndicator(),
+                        ),
+
+                      // Message list
+                      ListView.builder(
+                        controller: _scrollController,
+                        reverse: false, // Keep false to show oldest at top
+                        itemCount:
+                            provider.messages.length + sortedDates.length,
+                        itemBuilder: (context, index) {
+                          // Calculate which date section we're in
+                          int messageIndex = index;
+                          String? currentDate;
+
+                          for (String date in sortedDates) {
+                            if (messageIndex == 0) {
+                              // This is a date header
+                              currentDate = date;
+                              messageIndex--;
+                              break;
+                            } else if (messageIndex <=
+                                messagesByDate[date]!.length) {
+                              // This is a message in the current date section
+                              final actualIndex =
+                                  messagesByDate[date]![messageIndex - 1];
+                              return MessageBubble(
+                                message: provider.messages[actualIndex].message,
+                                isMe: provider.messages[actualIndex].isUser,
+                                timestamp:
+                                    provider.messages[actualIndex].timestamp,
+                              );
+                            } else {
+                              // Move to next date section
+                              messageIndex -= messagesByDate[date]!.length + 1;
+                            }
+                          }
+
+                          // If we got here, it's a date header
+                          if (currentDate != null) {
+                            final dateParts = currentDate.split('-');
+                            final headerDate = DateTime(
+                              int.parse(dateParts[0]),
+                              int.parse(dateParts[1]),
+                              int.parse(dateParts[2]),
+                            );
+                            return DateHeader(date: headerDate);
+                          }
+
+                          // Fallback (should not happen)
+                          return SizedBox();
+                        },
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+            ChatInput(onSubmitted: _handleSubmitted),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+==== /Users/shubh/development/sahai/sahai/lib/screens/chat/widgets/chat_input.dart ====
+
+import 'package:flutter/material.dart';
+
+class ChatInput extends StatefulWidget {
+  final Function(String) onSubmitted;
+
+  const ChatInput({super.key, required this.onSubmitted});
+
+  @override
+  _ChatInputState createState() => _ChatInputState();
+}
+
+class _ChatInputState extends State<ChatInput> {
+  final TextEditingController _controller = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
+  bool _isSending = false;
+  bool _isFocused = false;
+  bool _showEmptyError = false;
+  static const int _maxChars = 1000;
+  static const Color _themeColor = Color(0xff00377A);
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(() {
+      if (mounted) {
+        setState(() {
+          _isFocused = _focusNode.hasFocus;
+          // Clear error when focusing back in the field
+          if (_isFocused) _showEmptyError = false;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _handleSubmit() async {
+    final trimmed = _controller.text.trim();
+
+    if (trimmed.isEmpty) {
+      setState(() => _showEmptyError = true);
+      _focusNode.requestFocus();
+      return;
+    }
+
+    if (trimmed.length > _maxChars) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Message too long (max 1000 chars)'),
+          duration: Duration(seconds: 1),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final messageText = trimmed;
+    _controller.clear();
+
+    setState(() {
+      _isSending = true;
+      _showEmptyError = false;
+    });
+
+    try {
+      await widget.onSubmitted(messageText);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to send message: ${e.toString()}'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isSending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final screenWidth = mediaQuery.size.width;
+    final screenHeight = mediaQuery.size.height;
+    final bottomInset = mediaQuery.viewInsets.bottom;
+
+    // Adjust padding when keyboard is visible
+    final verticalPadding =
+        bottomInset > 0 ? screenHeight * 0.01 : screenHeight * 0.02;
+
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: screenWidth * 0.04,
+        vertical: verticalPadding,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: screenHeight * 0.15, // Max 15% of screen height
+                  ),
+                  child: TextField(
+                    controller: _controller,
+                    focusNode: _focusNode,
+                    maxLines: null, // Allows unlimited lines
+                    keyboardType: TextInputType.multiline,
+                    textCapitalization: TextCapitalization.sentences,
+                    textInputAction: TextInputAction.newline,
+                    onChanged: (text) {
+                      // Clear error when typing
+                      if (_showEmptyError && text.isNotEmpty) {
+                        setState(() => _showEmptyError = false);
+                      } else {
+                        setState(() {});
+                      }
+                    },
+                    decoration: InputDecoration(
+                      hintText: "Type your message...",
+                      hintStyle: TextStyle(
+                        color: _themeColor.withOpacity(0.6),
+                      ),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: screenWidth * 0.04,
+                        vertical: screenHeight * 0.012,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24.0),
+                        borderSide: BorderSide(
+                          color: _showEmptyError ? Colors.red : _themeColor,
+                          width: 1.0,
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24.0),
+                        borderSide: BorderSide(
+                          color: _showEmptyError
+                              ? Colors.red
+                              : _themeColor.withOpacity(0.5),
+                          width: 1.0,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24.0),
+                        borderSide: BorderSide(
+                          color: _showEmptyError ? Colors.red : _themeColor,
+                          width: 1.5,
+                        ),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      suffixIcon: _controller.text.isNotEmpty || _isFocused
+                          ? Container(
+                              margin: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: _themeColor,
+                                shape: BoxShape.circle,
+                              ),
+                              child: IconButton(
+                                icon: _isSending
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(
+                                        Icons.send,
+                                        color: Colors.white,
+                                      ),
+                                onPressed: _isSending ? null : _handleSubmit,
+                              ),
+                            )
+                          : null,
+                      counter: Text(
+                        "${_controller.text.length}/$_maxChars",
+                        style: TextStyle(
+                          color: _controller.text.length > _maxChars
+                              ? Colors.red
+                              : _themeColor.withOpacity(0.7),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          // Elegant error message that appears below the text field
+          if (_showEmptyError)
+            Padding(
+              padding: const EdgeInsets.only(left: 16, top: 4),
+              child: Text(
+                "Please enter a message",
+                style: TextStyle(
+                  color: Colors.red[700],
+                  fontSize: 12,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+
+==== /Users/shubh/development/sahai/sahai/lib/screens/chat/widgets/date_header.dart ====
+
+// New widget for date headers
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
+class DateHeader extends StatelessWidget {
+  final DateTime date;
+
+  const DateHeader({super.key, required this.date});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          _getDateLabel(date),
+          style: TextStyle(
+            color: Colors.grey[600],
+            fontSize: 12,
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _getDateLabel(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+
+    final messageDate = DateTime(date.year, date.month, date.day);
+
+    if (messageDate == today) return 'Today';
+    if (messageDate == yesterday) return 'Yesterday';
+    return DateFormat('MMMM d, y').format(date);
+  }
+}
+
+
+==== /Users/shubh/development/sahai/sahai/lib/screens/chat/widgets/message_bubble.dart ====
+
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart'; // Add this import
+
+class MessageBubble extends StatelessWidget {
+  final String message;
+  final bool isMe;
+  final DateTime timestamp;
+
+  const MessageBubble({
+    super.key,
+    required this.message,
+    required this.isMe,
+    required this.timestamp,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final timeFormat = DateFormat('HH:mm'); // Time formatter
+
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: screenWidth * 0.06,
+        vertical: screenHeight * 0.01,
+      ),
+      child: !isMe
+          ? Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 17.0),
+                  child: Icon(
+                    Icons.circle,
+                    color: const Color(0xff4D4D4D),
+                    size: screenWidth * 0.036,
+                  ),
+                ),
+                Expanded(
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: screenWidth * 0.04,
+                      vertical: screenHeight * 0.01,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          message,
+                          style: GoogleFonts.inter(
+                            color: Colors.black,
+                            fontSize: 22,
+                          ),
+                        ),
+                        Text(
+                          timeFormat.format(timestamp),
+                          style: GoogleFonts.inter(
+                            color: Colors.grey.shade600,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : Align(
+              alignment: Alignment.centerRight,
+              child: Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: screenWidth * 0.04,
+                  vertical: screenHeight * 0.01,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xff00377A),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      message,
+                      style: GoogleFonts.inter(
+                        color: Colors.white,
+                        fontSize: 22,
+                      ),
+                    ),
+                    Text(
+                      timeFormat.format(timestamp),
+                      style: GoogleFonts.inter(
+                        color: Colors.white.withOpacity(0.8),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+    );
+  }
+}
+
+
+==== /Users/shubh/development/sahai/sahai/lib/screens/splash_screen.dart ====
+
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:sahai/providers/user_provider.dart';
+import 'package:sahai/screens/auth/landing_page.dart';
+import 'package:sahai/screens/chat/text_chat_screen.dart';
+import 'package:sahai/screens/chat/guest_chat_screen.dart';
+
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
+
+  @override
+  _SplashScreenState createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Setup animation
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    );
+
+    _fadeAnimation =
+        Tween<double>(begin: 0.0, end: 1.0).animate(_animationController);
+    _animationController.forward();
+
+    // Navigate after delay
+    _checkUserSessionAndNavigate();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _checkUserSessionAndNavigate() async {
+    // Keep the 3 second delay since you mentioned it's working
+    await Future.delayed(const Duration(seconds: 3));
+
+    // Use a try-catch to handle potential errors gracefully
+    try {
+      if (!mounted) return;
+
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      await userProvider.loadUser();
+
+      if (!mounted) return;
+
+      // Navigate based on user status
+      if (userProvider.user != null) {
+        Navigator.of(context).pushReplacement(MaterialPageRoute(
+          builder: (context) => userProvider.user!.userType == 'pesu'
+              ? const TextChatScreen()
+              : const GuestChatScreen(),
+        ));
+      } else {
+        Navigator.of(context).pushReplacement(MaterialPageRoute(
+          builder: (context) => const LandingPage(),
+        ));
+      }
+    } catch (e) {
+      // If there's an error, still navigate to landing page
+      if (mounted) {
+        debugPrint('Error in splash screen: $e');
+        Navigator.of(context).pushReplacement(MaterialPageRoute(
+          builder: (context) => const LandingPage(),
+        ));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Center(
+        child: FadeTransition(
+          opacity: _fadeAnimation,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image.asset(
+                'assets/images/pesu_logo_png.png',
+                width: 200,
+                errorBuilder: (context, error, stackTrace) {
+                  return const Icon(Icons.school,
+                      size: 120, color: Colors.grey);
+                },
+              ),
+              const SizedBox(height: 30),
+              const CircularProgressIndicator(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+==== /Users/shubh/development/sahai/sahai/lib/services/api_service.dart ====
+
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
+class ApiService {
+  final String baseUrl = 'YOUR_FLASK_BACKEND_URL';
+
+  Future<String> sendMessage(String message) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/chat'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({'message': message}),
+    );
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body)['response'];
+    } else {
+      throw Exception('Failed to send message');
+    }
+  }
+
+  // Add more API methods as needed
+}
+
+
+==== /Users/shubh/development/sahai/sahai/lib/widgets/custom_button.dart ====
+
+import 'package:flutter/material.dart';
+
+class CustomButton extends StatelessWidget {
+  final String text;
+  final VoidCallback onPressed;
+
+  const CustomButton({super.key, required this.text, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      ),
+      child: Text(text),
+    );
+  }
+}
+
+
+==== /Users/shubh/development/sahai/sahai/lib/widgets/custom_textfield.dart ====
+
+import 'package:flutter/material.dart';
+
+class CustomTextField extends StatelessWidget {
+  final String labelText;
+  final bool obscureText;
+
+  const CustomTextField({super.key, required this.labelText, this.obscureText = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      obscureText: obscureText,
+      decoration: InputDecoration(
+        labelText: labelText,
+        border: const OutlineInputBorder(),
+      ),
+    );
+  }
+}

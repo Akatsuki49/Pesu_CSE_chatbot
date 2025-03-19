@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:sahai/models/message_model.dart';
 import 'package:sahai/providers/base_chat_provider.dart';
+import 'package:sahai/services/api_service.dart';
 
 class ChatProvider with ChangeNotifier, BaseChatProvider {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -182,10 +183,20 @@ class ChatProvider with ChangeNotifier, BaseChatProvider {
     await addBotResponse(userId, message);
   }
 
+  // Future<String> generateResponse(String message) async {
+  //   // This is a dummy function. Replace with actual API call later.
+  //   await Future.delayed(const Duration(seconds: 1));
+  //   return 'Mock response to: $message';
+  // }
   Future<String> generateResponse(String message) async {
-    // This is a dummy function. Replace with actual API call later.
-    await Future.delayed(const Duration(seconds: 1));
-    return 'Mock response to: $message';
+    try {
+      final apiService = ApiService();
+      return await apiService.getResponse(message);
+      print(message);
+    } catch (e) {
+      setError('API Error: ${e.toString()}');
+      return 'Sorry, I encountered an error. Please try again.';
+    }
   }
 
   Future<void> _storeInFirestore(String userId, String message, String response,

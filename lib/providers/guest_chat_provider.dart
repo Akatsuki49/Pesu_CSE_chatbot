@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sahai/models/message_model.dart';
 import 'package:sahai/providers/base_chat_provider.dart';
+import 'package:sahai/services/api_service.dart';
 
 class GuestChatProvider with ChangeNotifier, BaseChatProvider {
   // Split the sendMessage into two functions for separate UI updates
@@ -44,13 +45,17 @@ class GuestChatProvider with ChangeNotifier, BaseChatProvider {
     await addBotResponse(message);
   }
 
+  // Future<String> generateResponse(String message) async {
+  //   await Future.delayed(const Duration(seconds: 1));
+  //   return 'Mock response to: $message';
+  // }
   Future<String> generateResponse(String message) async {
-    await Future.delayed(const Duration(seconds: 1));
-    return 'Mock response to: $message';
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
+    try {
+      final apiService = ApiService();
+      return await apiService.getResponse(message);
+    } catch (e) {
+      setError('API Error: ${e.toString()}');
+      return 'Sorry, I encountered an error. Please try again.';
+    }
   }
 }
